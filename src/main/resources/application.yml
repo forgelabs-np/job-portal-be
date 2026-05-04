@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: JOB_PORTAL_V1
+  profiles:
+    active: dev
+  mail:
+    from: tryaac1ss@gmail.com
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+error:
+  include-stacktrace: never
+  include-message: always
+  include-binding-errors: never
+
+jwt:
+  secret: ${JWT_SECRET:5ZoPtw1tCYBcri4AvOTvu8OcCgWo7iKU/HsJzMesr9M=}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh:
+    expiration: ${JWT_REFRESH_EXPIRATION:2592000000}
+
+app:
+  security:
+    max-login-attempts: 5
+    account-lock-duration-minutes: 30
+    password-reset:
+      token-expiration-ms: 300000
+      otp-length: 6
+      max-attempts: 3
+  otp:
+    expiry-minutes: 10
+    resend-cooldown-seconds: 120
+  max-login-attempts: 5
+  lock-duration-minutes: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.security: DEBUG
+    com.jobportal.v1: DEBUG
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    filter: true
+    try-it-out-enabled: true
+    doc-expansion: none
+  packages-to-scan: com.jobportal.v1.controller
+  paths-to-match: /api/**

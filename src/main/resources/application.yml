@@ -8,6 +8,15 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+    check-template-location: true
+    servlet:
+      content-type: text/html
 
 server:
   port: 8080
@@ -69,5 +78,11 @@ springdoc:
     filter: true
     try-it-out-enabled: true
     doc-expansion: none
-  packages-to-scan: com.jobportal.v1.controller
+  packages-to-scan:
+    - com.jobportal.v1.controller
+    - com.jobportal.v1
   paths-to-match: /api/**
+  show-actuator: true
+  use-management-port: false
+  writer-with-default-pretty-printer: true
+

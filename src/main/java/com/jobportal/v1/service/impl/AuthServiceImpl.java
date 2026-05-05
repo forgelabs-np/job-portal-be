@@ -7,9 +7,7 @@ import com.jobportal.v1.entity.EmailVerificationToken;
 import com.jobportal.v1.entity.RefreshToken;
 import com.jobportal.v1.entity.User;
 import com.jobportal.v1.enums.RoleEnum;
-import com.jobportal.v1.exception.BadRequestException;
-import com.jobportal.v1.exception.ResourceNotFoundException;
-import com.jobportal.v1.exception.TokenNotFoundException;
+import com.jobportal.v1.exception.*;
 import com.jobportal.v1.repository.EmailVerificationTokenRepository;
 import com.jobportal.v1.repository.UserRepository;
 import com.jobportal.v1.security.JwtUtils;
@@ -76,19 +74,25 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
-        // Check if account is locked
         if (user.isAccountLocked()) {
             throw new BadCredentialsException("Account is locked. Please try again later.");
         }
 
-        // Check if user has the expected role
         if (!user.hasRole(expectedRole)) {
             throw new BadCredentialsException("Access denied. You don't have " + expectedRole + " privileges.");
         }
 
-        // Check if email is verified
         if (!user.isEmailVerified()) {
             throw new BadCredentialsException("Please verify your email before logging in.");
+        }
+
+        if (expectedRole == RoleEnum.AGENCY) {
+            if (user.isPending()) {
+                throw new AgencyPendingException("Your account is pending admin approval. You will be notified once approved.");
+            }
+            if (user.isRejected()) {
+                throw new AgencyRejectedException("Your account has been rejected. Reason: " + user.getRejectionReason());
+            }
         }
 
         try {
@@ -98,11 +102,9 @@ public class AuthServiceImpl implements AuthService {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Reset failed attempts on successful login
             user.recordLogin();
             userRepository.save(user);
 
-            // Generate tokens
             String accessToken = jwtUtils.generateJwtToken(authentication);
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 

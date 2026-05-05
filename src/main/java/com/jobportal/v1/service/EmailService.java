@@ -4,6 +4,8 @@ import com.jobportal.v1.entity.User;
 
 public interface EmailService {
     void sendPasswordResetEmail(User user, String token);
+    void sendAgencyApprovalEmail(String to, String agencyName);
+    void sendAgencyRejectionEmail(String to, String agencyName, String rejectionReason);
     void sendWelcomeEmail(User user);
     void sendVerificationEmail(String email, String name, String otp);
 }

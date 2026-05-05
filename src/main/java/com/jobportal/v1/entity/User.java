@@ -1,5 +1,6 @@
 package com.jobportal.v1.entity;
 
+import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.enums.RoleEnum;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -42,6 +43,25 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Set<RoleEnum> roles = new HashSet<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false)
+    private ApprovalStatus approvalStatus = ApprovalStatus.PENDING;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
+    @Column(name = "request_count", columnDefinition = "integer default 0")
+    private Integer requestCount = 0;
+
+    @Column(name = "last_request_at")
+    private LocalDateTime lastRequestAt;
+
     @Column(name = "is_active")
     private boolean isActive = true;
 
@@ -79,6 +99,35 @@ public class User {
 
     @Version
     private Long version;
+
+    public boolean isApproved() {
+        return ApprovalStatus.APPROVED.equals(this.approvalStatus);
+    }
+
+    public boolean isPending() {
+        return ApprovalStatus.PENDING.equals(this.approvalStatus);
+    }
+
+    public boolean isRejected() {
+        return ApprovalStatus.REJECTED.equals(this.approvalStatus);
+    }
+
+    public void approve(Long adminId) {
+        this.approvalStatus = ApprovalStatus.APPROVED;
+        this.approvedAt = LocalDateTime.now();
+        this.approvedBy = adminId;
+        this.rejectionReason = null;
+    }
+
+    public void reject(String reason) {
+        this.approvalStatus = ApprovalStatus.REJECTED;
+        this.rejectionReason = reason;
+    }
+
+    public void incrementRequestCount() {
+        this.requestCount = (this.requestCount == null ? 0 : this.requestCount) + 1;
+        this.lastRequestAt = LocalDateTime.now();
+    }
 
     public void verifyEmail() {
         this.emailVerified = true;

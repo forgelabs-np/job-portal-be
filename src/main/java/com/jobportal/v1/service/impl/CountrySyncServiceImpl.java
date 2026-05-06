@@ -3,7 +3,7 @@ package com.jobportal.v1.service.impl;
 import com.jobportal.v1.dto.country.response.CountryResponse;
 import com.jobportal.v1.dto.country.response.CountrySyncResponse;
 import com.jobportal.v1.dto.country.response.RestCountryResponse;
-import com.jobportal.v1.entity.Country;
+import com.jobportal.v1.entity.master.Country;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.CountryRepository;
 import com.jobportal.v1.service.CountrySyncService;
@@ -79,8 +79,10 @@ public class CountrySyncServiceImpl implements CountrySyncService {
                 Optional<Country> existingCountry = countryRepository.findByCode(countryCode);
 
                 if (existingCountry.isPresent()) {
-                    // Update existing country
+                    // Update existing country - PRESERVE isEnabled value
                     Country country = existingCountry.get();
+                    boolean currentEnabled = country.getIsEnabled() != null ? country.getIsEnabled() : false;
+
                     country.setName(countryName != null ? countryName : country.getName());
                     country.setPhoneCode(phoneCode);
                     country.setCurrencyCode(currencyCode != null ? currencyCode : country.getCurrencyCode());
@@ -89,10 +91,13 @@ public class CountrySyncServiceImpl implements CountrySyncService {
                     country.setCapital(capital);
                     country.setRegion(apiCountry.getRegion());
                     country.setSubregion(apiCountry.getSubregion());
+                    country.setIsEnabled(currentEnabled); // Restore the enabled status
+
                     countryRepository.save(country);
                     updated++;
+                    log.debug("Updated country: {} (enabled: {})", countryCode, currentEnabled);
                 } else {
-                    // Add new country
+                    // Add new country - default disabled
                     Country country = new Country();
                     country.setCode(countryCode);
                     country.setName(countryName);
@@ -104,8 +109,10 @@ public class CountrySyncServiceImpl implements CountrySyncService {
                     country.setRegion(apiCountry.getRegion());
                     country.setSubregion(apiCountry.getSubregion());
                     country.setIsEnabled(false); // Default disabled
+
                     countryRepository.save(country);
                     added++;
+                    log.debug("Added new country: {}", countryCode);
                 }
             }
 
@@ -172,14 +179,11 @@ public class CountrySyncServiceImpl implements CountrySyncService {
                 .id(country.getId())
                 .name(country.getName())
                 .code(country.getCode())
-                .phoneCode(country.getPhoneCode())
                 .currencyCode(country.getCurrencyCode())
-                .currencyName(country.getCurrencyName())
                 .currencySymbol(country.getCurrencySymbol())
-                .capital(country.getCapital())
-                .region(country.getRegion())
-                .subregion(country.getSubregion())
-                .isEnabled(country.getIsEnabled())
+                .isEnabled(country.getIsEnabled() != null ? country.getIsEnabled() : false)
+                .createdAt(country.getCreatedAt())
+                .updatedAt(country.getUpdatedAt())
                 .build();
     }
 }

@@ -1,4 +1,4 @@
-package com.jobportal.v1.entity;
+package com.jobportal.v1.entity.master;
 
 import jakarta.persistence.*;
 import lombok.Data;

@@ -1,6 +1,6 @@
 package com.jobportal.v1.repository;
 
-import com.jobportal.v1.entity.Country;
+import com.jobportal.v1.entity.master.Country;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

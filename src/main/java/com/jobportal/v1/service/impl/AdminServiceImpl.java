@@ -50,6 +50,7 @@ public class AdminServiceImpl implements AdminService {
             log.info("Agency approved: {} by admin: {}", agency.getEmail(), adminId);
 
             return AgencyApprovalResponse.builder()
+                    .userId(agency.getId())
                     .email(agency.getEmail())
                     .approvalStatus(agency.getApprovalStatus())
                     .approvedAt(agency.getApprovedAt())
@@ -68,6 +69,7 @@ public class AdminServiceImpl implements AdminService {
             log.info("Agency rejected: {} by admin: {}", agency.getEmail(), adminId);
 
             return AgencyApprovalResponse.builder()
+                    .userId(agency.getId())      // Add this
                     .email(agency.getEmail())
                     .approvalStatus(agency.getApprovalStatus())
                     .rejectionReason(agency.getRejectionReason())
@@ -95,6 +97,7 @@ public class AdminServiceImpl implements AdminService {
 
     private AgencyApprovalResponse toResponse(User agency) {
         return AgencyApprovalResponse.builder()
+                .userId(agency.getId())
                 .email(agency.getEmail())
                 .approvalStatus(agency.getApprovalStatus())
                 .rejectionReason(agency.getRejectionReason())

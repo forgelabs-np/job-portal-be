@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class AgencyApprovalResponse {
+    private Long userId;
     private String email;
     private ApprovalStatus approvalStatus;
     private String rejectionReason;

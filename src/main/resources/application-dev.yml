@@ -1,7 +1,10 @@
 spring:
   datasource:
-    url: jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?user=postgres.geqlzcvxpshycmfahdcw&password=%40Ashishthapa46&sslmode=require
-    username: postgres
+#    url: jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?user=postgres.geqlzcvxpshycmfahdcw&password=%40Ashishthapa46&sslmode=require
+#    username: postgres
+#    password: '@Ashishthapa46'
+    url: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require
+    username: postgres.hduarsuedduoayzeecpo
     password: '@Ashishthapa46'
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -39,13 +42,15 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+        debug: false
 
 server:
   port: 8080
 
 logging:
   level:
-    org.hibernate.SQL: DEBUG
+#    org.hibernate.SQL: DEBUG
+    org.springdoc: DEBUG
     org.hibernate.type: TRACE
 
 springdoc:

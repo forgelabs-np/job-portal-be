@@ -1,43 +1,16 @@
 package com.jobportal.v1.dto.admin.response;
 
-import lombok.AllArgsConstructor;
+import com.jobportal.v1.dto.dashboard.response.*;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class AdminDashboardResponse {
-    // Company Statistics
-    private Long totalCompanies;
-    private Long verifiedCompanies;
-    private Long pendingVerification;
-    private Long rejectedCompanies;
-
-    // Job Statistics
-    private Long activeJobs;
-    private Long totalJobs;
-
-    // Candidate Statistics
-    private Long totalCandidates;
-    private Long activeCandidates;
-
-    // Registration Statistics
-    private Long newRegistrationsToday;
-    private Long newCandidatesToday;
-    private Long newRecruitersToday;
-
-    // Application Statistics
-    private Long applicationsThisWeek;
-    private Long applicationsToday;
-    private Long totalApplications;
-
-    // Additional Metrics
-    private Double companyVerificationRate;
-    private Double jobFillRate;
-    private LocalDateTime lastUpdated;
+    private DashboardStats stats;
+    private List<RecentJobDemand> recentJobs;
+    private List<RecentAgency> recentAgencies;
+    private JobStatusDistribution jobStatusDistribution;
+    private WeeklyActivity weeklyActivity;
 }

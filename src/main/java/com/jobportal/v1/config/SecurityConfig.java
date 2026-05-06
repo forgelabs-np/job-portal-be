@@ -90,7 +90,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/agency/**").hasRole("AGENCY")
                         // Public test endpoints
-                        .requestMatchers("/api/public/**", "/api/test/**").permitAll()
+                        .requestMatchers("/api/public/**", "/api/test/**","/api/countries/enabled").permitAll()
                         // Actuator
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // All other requests require authentication

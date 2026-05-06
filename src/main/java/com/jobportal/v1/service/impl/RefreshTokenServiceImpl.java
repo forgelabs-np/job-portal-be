@@ -37,7 +37,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     public RefreshToken createRefreshToken(Long userId) {
         // Delete any existing refresh token for this user
         refreshTokenRepository.deleteByUserId(userId);
-
+        refreshTokenRepository.flush();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 

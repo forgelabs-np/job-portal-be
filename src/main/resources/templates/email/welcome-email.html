@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to JobPortal</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-icon {
+            text-align: center;
+            font-size: 64px;
+            margin: 20px 0;
+        }
+        .feature-list {
+            background: #F0FDF4;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+        }
+        .feature-list li {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .footer {
+            background: #f8fafc;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Welcome to JobPortal!</h1>
+    </div>
+    <div class="content">
+        <div class="welcome-icon">🎉</div>
+
+        <h2>Hello <span th:text="${name}">User</span>,</h2>
+
+        <p>Thank you for joining JobPortal! We're excited to have you on board.</p>
+
+        <div class="feature-list">
+            <p><strong>Here's what you can do:</strong></p>
+            <li>✓ Create your professional profile</li>
+            <li>✓ Browse and apply for jobs</li>
+            <li>✓ Connect with top employers</li>
+            <li>✓ Track your applications</li>
+        </div>
+
+        <div style="text-align: center;">
+            <a th:href="${loginLink}" class="button">Get Started</a>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #6B7280;">
+            We're here to help you succeed in your career journey!
+        </p>
+    </div>
+    <div class="footer">
+        <p>© <span th:text="${currentYear}">2024</span> JobPortal. All rights reserved.</p>
+        <p>Need help? Contact <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@jobportal.com</a></p>
+    </div>
+</div>
+</body>
+</html>

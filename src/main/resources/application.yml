@@ -52,9 +52,14 @@ management:
 
 logging:
   level:
-    org.springframework.web: INFO
-    org.springframework.security: DEBUG
     com.jobportal.v1: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    org.hibernate: WARN
+    com.zaxxer.hikari: WARN
+    javax.mail: OFF
+    jakarta.mail: OFF
+    org.springframework.mail: WARN
 
 springdoc:
   api-docs:

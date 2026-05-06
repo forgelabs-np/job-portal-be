@@ -117,4 +117,20 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred. Please try again later.", 500));
     }
+
+    @ExceptionHandler(AgencyPendingException.class)
+    public ResponseEntity<ApiResponse<String>> handleAgencyPendingException(AgencyPendingException ex) {
+        log.warn("Agency pending approval: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage(), 403));
+    }
+
+    @ExceptionHandler(AgencyRejectedException.class)
+    public ResponseEntity<ApiResponse<String>> handleAgencyRejectedException(AgencyRejectedException ex) {
+        log.warn("Agency rejected: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage(), 403));
+    }
 }

@@ -10,8 +10,10 @@ import com.jobportal.v1.entity.User;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AuthService;
+import com.jobportal.v1.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -32,6 +31,7 @@ import java.util.stream.Collectors;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "Admin Login", description = "Authenticate admin user")
     @PostMapping("/admin/login")
@@ -84,13 +84,13 @@ public class AuthController {
     @Operation(summary = "Resend Verification OTP", description = "Resend verification OTP (2-minute cooldown)")
     @PostMapping("/resend-verification")
     public ResponseEntity<ApiResponse<String>> resendVerification(
-            @RequestParam String email) {
+            @Valid @RequestBody ApiRequest<ResendVerificationRequest> request) {
 
-        authService.resendVerificationOtp(email);
+        authService.resendVerificationOtp(request.getData().getEmail());
 
         return ResponseEntity.ok(ApiResponse.success(
                 "Verification code has been resent to your email.",
-                "OTP resent to " + email
+                "OTP resent to " + request.getData().getEmail()
         ));
     }
 
@@ -112,9 +112,9 @@ public class AuthController {
     @Operation(summary = "Logout", description = "Logout user and invalidate refresh token")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout(
-            @RequestParam("refreshToken") String refreshToken) {
+            @Valid @RequestBody ApiRequest<LogoutRequest> request) {
 
-        authService.logout(refreshToken);
+        authService.logout(request.getData().getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
 
@@ -129,21 +129,34 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
-    @Operation(summary = "Forgot Password", description = "Request password reset")
+    @Operation(summary = "Forgot Password", description = "Request password reset OTP")
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<String>> forgotPassword(
-            @Valid @RequestBody ApiRequest<ForgotPasswordRequest> request) {
+            @Valid @RequestBody ApiRequest<ForgotPasswordRequest> request,
+            HttpServletRequest httpRequest) {
 
-        authService.forgotPassword(request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Password reset link sent to your email", null));
+        passwordResetService.requestPasswordReset(
+                request.getData().getEmail(),
+                getClientIp(httpRequest),
+                httpRequest.getHeader("User-Agent")
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Password reset OTP sent to your email", null));
     }
 
-    @Operation(summary = "Reset Password", description = "Reset password using token")
+    @Operation(summary = "Reset Password", description = "Reset password using OTP")
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(
-            @Valid @RequestBody ApiRequest<ResetPasswordRequest> request) {
+            @Valid @RequestBody ApiRequest<ResetPasswordRequest> request,
+            HttpServletRequest httpRequest) {
 
-        authService.resetPassword(request.getData());
+        passwordResetService.resetPassword(
+                request.getData().getToken(),
+                request.getData().getNewPassword(),
+                getClientIp(httpRequest),
+                httpRequest.getHeader("User-Agent")
+        );
+
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 
@@ -154,5 +167,13 @@ public class AuthController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         return ResponseEntity.ok(ApiResponse.success("Current user retrieved", userPrincipal));
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

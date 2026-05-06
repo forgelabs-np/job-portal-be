@@ -45,17 +45,12 @@ public class SwaggerConfig {
                     ## Authentication Flow
                     
                     1. **Register**: `POST /api/auth/signup` - Create new account
-                    
                     2. **Verify Email**: `POST /api/auth/verify-signup` - Verify OTP sent to email
-                    
                     3. **Login**: Use role-specific endpoints:
                        - `POST /api/auth/admin/login` - For admin users
                        - `POST /api/auth/agency/login` - For agency users
-                    
                     4. **Use Token**: After login, click the **Authorize** button above and enter your JWT token
-                    
                     5. **Refresh Token**: `POST /api/auth/refresh-token` - Get new access token
-                    
                     6. **Logout**: `POST /api/auth/logout` - Invalidate refresh token
                     
                     ## Roles & Permissions

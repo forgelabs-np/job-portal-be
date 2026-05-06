@@ -3,7 +3,7 @@ spring:
 #    url: jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?user=postgres.geqlzcvxpshycmfahdcw&password=%40Ashishthapa46&sslmode=require
 #    username: postgres
 #    password: '@Ashishthapa46'
-    url: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require
+    url: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
     username: postgres.hduarsuedduoayzeecpo
     password: '@Ashishthapa46'
     driver-class-name: org.postgresql.Driver
@@ -17,7 +17,10 @@ spring:
       leak-detection-threshold: 60000
       validation-timeout: 5000
       connection-test-query: SELECT 1
-      auto-commit: false
+      auto-commit: true
+      data-source-properties:
+        prepareThreshold: 0
+        preparedStatementCacheQueries: 0
 
   jpa:
     hibernate:

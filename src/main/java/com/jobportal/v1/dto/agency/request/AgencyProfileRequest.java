@@ -15,7 +15,6 @@ public class AgencyProfileRequest {
     private String companyLogoUrl;
     private String companyAddress;
 
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
     private String companyPhone;
 
     private String registrationNumber;
@@ -28,6 +27,5 @@ public class AgencyProfileRequest {
     @Email(message = "Invalid email format")
     private String contactPersonEmail;
 
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
     private String contactPersonPhone;
 }

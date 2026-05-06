@@ -1,7 +1,6 @@
 package com.jobportal.v1.service.impl;
 
-import com.jobportal.v1.dto.agency.request.ApproveAgencyRequest;
-import com.jobportal.v1.dto.agency.request.RejectAgencyRequest;
+import com.jobportal.v1.dto.agency.request.AgencyActionRequest;
 import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
 import com.jobportal.v1.entity.User;
 import com.jobportal.v1.enums.ApprovalStatus;
@@ -29,7 +28,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public AgencyApprovalResponse approveAgency(ApproveAgencyRequest request, Long adminId) {
+    public AgencyApprovalResponse processAgencyAction(AgencyActionRequest request, Long adminId) {
         User agency = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Agency not found"));
 
@@ -41,76 +40,55 @@ public class AdminServiceImpl implements AdminService {
             throw new BadRequestException("Agency is already " + agency.getApprovalStatus());
         }
 
-        agency.approve(adminId);
-        userRepository.save(agency);
+        String action = request.getAction().toUpperCase();
 
-        emailService.sendAgencyApprovalEmail(agency.getEmail(), agency.getFullName());
+        if ("APPROVE".equals(action)) {
+            agency.approve(adminId);
+            userRepository.save(agency);
+            emailService.sendAgencyApprovalEmail(agency.getEmail(), agency.getFullName());
 
-        log.info("Agency approved: {} by admin: {}", agency.getEmail(), adminId);
+            log.info("Agency approved: {} by admin: {}", agency.getEmail(), adminId);
 
-        return AgencyApprovalResponse.builder()
-                .email(agency.getEmail())
-                .approvalStatus(agency.getApprovalStatus())
-                .approvedAt(agency.getApprovedAt())
-                .message("Agency approved successfully")
-                .build();
+            return AgencyApprovalResponse.builder()
+                    .email(agency.getEmail())
+                    .approvalStatus(agency.getApprovalStatus())
+                    .approvedAt(agency.getApprovedAt())
+                    .message("Agency approved successfully")
+                    .build();
+
+        } else if ("REJECT".equals(action)) {
+            if (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty()) {
+                throw new BadRequestException("Rejection reason is required");
+            }
+
+            agency.reject(request.getRejectionReason());
+            userRepository.save(agency);
+            emailService.sendAgencyRejectionEmail(agency.getEmail(), agency.getFullName(), request.getRejectionReason());
+
+            log.info("Agency rejected: {} by admin: {}", agency.getEmail(), adminId);
+
+            return AgencyApprovalResponse.builder()
+                    .email(agency.getEmail())
+                    .approvalStatus(agency.getApprovalStatus())
+                    .rejectionReason(agency.getRejectionReason())
+                    .message("Agency rejected successfully")
+                    .build();
+        } else {
+            throw new BadRequestException("Invalid action. Use APPROVE or REJECT");
+        }
     }
 
     @Override
-    @Transactional
-    public AgencyApprovalResponse rejectAgency(RejectAgencyRequest request, Long adminId) {
-        User agency = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Agency not found"));
+    public List<AgencyApprovalResponse> getAgenciesByStatus(ApprovalStatus status) {
+        List<User> agencies;
 
-        if (!agency.isAgency()) {
-            throw new BadRequestException("User is not an agency");
+        if (status == null) {
+            agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY);
+        } else {
+            agencies = userRepository.findByRolesContainingAndApprovalStatus(RoleEnum.AGENCY, status);
         }
 
-        if (!agency.isPending()) {
-            throw new BadRequestException("Agency is already " + agency.getApprovalStatus());
-        }
-
-        agency.reject(request.getRejectionReason());
-        userRepository.save(agency);
-
-        emailService.sendAgencyRejectionEmail(agency.getEmail(), agency.getFullName(), request.getRejectionReason());
-
-        log.info("Agency rejected: {} by admin: {}", agency.getEmail(), adminId);
-
-        return AgencyApprovalResponse.builder()
-                .email(agency.getEmail())
-                .approvalStatus(agency.getApprovalStatus())
-                .rejectionReason(agency.getRejectionReason())
-                .message("Agency rejected successfully")
-                .build();
-    }
-
-    @Override
-    public List<AgencyApprovalResponse> getAllPendingAgencies() {
-        List<User> pendingAgencies = userRepository.findByRolesContainingAndApprovalStatus(
-                RoleEnum.AGENCY, ApprovalStatus.PENDING);
-
-        return pendingAgencies.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<AgencyApprovalResponse> getAllApprovedAgencies() {
-        List<User> approvedAgencies = userRepository.findByRolesContainingAndApprovalStatus(
-                RoleEnum.AGENCY, ApprovalStatus.APPROVED);
-
-        return approvedAgencies.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<AgencyApprovalResponse> getAllRejectedAgencies() {
-        List<User> rejectedAgencies = userRepository.findByRolesContainingAndApprovalStatus(
-                RoleEnum.AGENCY, ApprovalStatus.REJECTED);
-
-        return rejectedAgencies.stream()
+        return agencies.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }

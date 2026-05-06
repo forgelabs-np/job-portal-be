@@ -1,19 +1,14 @@
 package com.jobportal.v1.service;
 
-import com.jobportal.v1.dto.agency.request.ApproveAgencyRequest;
-import com.jobportal.v1.dto.agency.request.RejectAgencyRequest;
+import com.jobportal.v1.dto.agency.request.AgencyActionRequest;
 import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
+import com.jobportal.v1.enums.ApprovalStatus;
 
 import java.util.List;
 
 public interface AdminService {
-    AgencyApprovalResponse approveAgency(ApproveAgencyRequest request, Long adminId);
 
-    AgencyApprovalResponse rejectAgency(RejectAgencyRequest request, Long adminId);
+    AgencyApprovalResponse processAgencyAction(AgencyActionRequest request, Long adminId);
 
-    List<AgencyApprovalResponse> getAllPendingAgencies();
-
-    List<AgencyApprovalResponse> getAllApprovedAgencies();
-
-    List<AgencyApprovalResponse> getAllRejectedAgencies();
+    List<AgencyApprovalResponse> getAgenciesByStatus(ApprovalStatus status);
 }

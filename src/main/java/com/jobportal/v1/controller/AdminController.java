@@ -2,9 +2,9 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
-import com.jobportal.v1.dto.agency.request.ApproveAgencyRequest;
-import com.jobportal.v1.dto.agency.request.RejectAgencyRequest;
+import com.jobportal.v1.dto.agency.request.AgencyActionRequest;
 import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
+import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminService;
@@ -29,44 +29,23 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    @Operation(summary = "Approve Agency", description = "Admin approves a pending agency")
-    @PostMapping("/agencies/approve")
-    public ResponseEntity<ApiResponse<AgencyApprovalResponse>> approveAgency(
-            @Valid @RequestBody ApiRequest<ApproveAgencyRequest> request,
+    @Operation(summary = "Process Agency Action", description = "Approve or reject a pending agency")
+    @PostMapping("/agencies/action")
+    public ResponseEntity<ApiResponse<AgencyApprovalResponse>> processAgencyAction(
+            @Valid @RequestBody ApiRequest<AgencyActionRequest> request,
             @CurrentUser UserPrincipal admin) {
 
-        AgencyApprovalResponse response = adminService.approveAgency(request.getData(), admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Agency approved successfully", response));
+        AgencyApprovalResponse response = adminService.processAgencyAction(request.getData(), admin.getId());
+        return ResponseEntity.ok(ApiResponse.success("Agency " + request.getData().getAction().toLowerCase() + "d successfully", response));
     }
 
-    @Operation(summary = "Reject Agency", description = "Admin rejects a pending agency with reason")
-    @PostMapping("/agencies/reject")
-    public ResponseEntity<ApiResponse<AgencyApprovalResponse>> rejectAgency(
-            @Valid @RequestBody ApiRequest<RejectAgencyRequest> request,
-            @CurrentUser UserPrincipal admin) {
+    @Operation(summary = "Get Agencies by Status", description = "Get all agencies filtered by approval status")
+    @GetMapping("/agencies")
+    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getAgenciesByStatus(
+            @RequestParam(required = false) ApprovalStatus status) {
 
-        AgencyApprovalResponse response = adminService.rejectAgency(request.getData(), admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Agency rejected successfully", response));
-    }
-
-    @Operation(summary = "Get Pending Agencies", description = "Get all agencies pending approval")
-    @GetMapping("/agencies/pending")
-    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getPendingAgencies() {
-        List<AgencyApprovalResponse> response = adminService.getAllPendingAgencies();
-        return ResponseEntity.ok(ApiResponse.success("Pending agencies retrieved", response));
-    }
-
-    @Operation(summary = "Get Approved Agencies", description = "Get all approved agencies")
-    @GetMapping("/agencies/approved")
-    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getApprovedAgencies() {
-        List<AgencyApprovalResponse> response = adminService.getAllApprovedAgencies();
-        return ResponseEntity.ok(ApiResponse.success("Approved agencies retrieved", response));
-    }
-
-    @Operation(summary = "Get Rejected Agencies", description = "Get all rejected agencies")
-    @GetMapping("/agencies/rejected")
-    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getRejectedAgencies() {
-        List<AgencyApprovalResponse> response = adminService.getAllRejectedAgencies();
-        return ResponseEntity.ok(ApiResponse.success("Rejected agencies retrieved", response));
+        List<AgencyApprovalResponse> response = adminService.getAgenciesByStatus(status);
+        String message = status == null ? "All agencies retrieved" : status + " agencies retrieved";
+        return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 }

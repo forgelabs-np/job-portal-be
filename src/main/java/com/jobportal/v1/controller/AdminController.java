@@ -2,12 +2,14 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
+import com.jobportal.v1.dto.admin.response.AdminDashboardResponse;
 import com.jobportal.v1.dto.agency.request.AgencyActionRequest;
 import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
 import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminService;
+import com.jobportal.v1.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +30,14 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final DashboardService dashboardService;  // Add this
+
+    @Operation(summary = "Admin Dashboard", description = "Get dashboard statistics and recent activities")
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard() {
+        AdminDashboardResponse response = dashboardService.getAdminDashboard();
+        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+    }
 
     @Operation(summary = "Process Agency Action", description = "Approve or reject a pending agency")
     @PostMapping("/agencies/action")

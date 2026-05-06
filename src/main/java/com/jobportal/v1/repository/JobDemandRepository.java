@@ -4,6 +4,7 @@ import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.enums.JobStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -21,21 +22,30 @@ public interface JobDemandRepository extends JpaRepository<JobDemand, Long> {
 
     Page<JobDemand> findByStatusAndIsActiveTrue(JobStatus status, Pageable pageable);
 
-    List<JobDemand> findByStatusAndIsActiveTrueAndDeadlineBefore(JobStatus status, LocalDateTime date);
-
     @Query("SELECT j FROM JobDemand j WHERE j.isActive = true AND j.status = 'OPEN' AND j.remainingSlots > 0 AND (j.deadline IS NULL OR j.deadline > CURRENT_TIMESTAMP)")
     List<JobDemand> findAllOpenAndActive();
 
     Page<JobDemand> findByCreatedByAndIsActiveTrue(Long adminId, Pageable pageable);
 
-    @Query("SELECT SUM(j.filledSlots) FROM JobDemand j WHERE j.createdBy = :adminId AND j.isActive = true")
-    Integer getTotalFilledSlotsByAdmin(@Param("adminId") Long adminId);
+    // Dashboard queries
+    @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.isActive = true")
+    Long countAllActiveJobs();
 
-    @Query("SELECT SUM(j.totalSlots) FROM JobDemand j WHERE j.createdBy = :adminId AND j.isActive = true")
-    Integer getTotalSlotsByAdmin(@Param("adminId") Long adminId);
+    @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.isActive = true AND j.status = :status")
+    Long countByStatus(@Param("status") JobStatus status);
 
-    @Modifying
-    @Transactional
-    @Query("UPDATE JobDemand j SET j.status = :status WHERE j.id = :id AND j.isActive = true")
-    void updateJobStatus(@Param("id") Long id, @Param("status") JobStatus status);
+    @Query("SELECT COALESCE(SUM(j.totalSlots), 0) FROM JobDemand j WHERE j.isActive = true")
+    Long sumTotalSlots();
+
+    @Query("SELECT COALESCE(SUM(j.filledSlots), 0) FROM JobDemand j WHERE j.isActive = true")
+    Long sumFilledSlots();
+
+    @Query("SELECT COALESCE(SUM(j.appliedCount), 0) FROM JobDemand j WHERE j.isActive = true")
+    Long sumAppliedCount();
+
+    @Query("SELECT j FROM JobDemand j WHERE j.isActive = true ORDER BY j.createdAt DESC")
+    List<JobDemand> findRecentJobs(Pageable pageable);
+
+    @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.createdAt BETWEEN :start AND :end")
+    Long countByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

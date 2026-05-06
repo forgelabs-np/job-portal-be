@@ -15,27 +15,29 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
+    public ResponseEntity<ApiResponse<String>> handleValidationExceptions(
             MethodArgumentNotValidException ex) {
 
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach(error -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
+        String errorMessage = ex.getBindingResult().getAllErrors().stream()
+                .map(error -> {
+                    String fieldName = ((FieldError) error).getField();
+                    String message = error.getDefaultMessage();
+                    return fieldName + ": " + message;
+                })
+                .collect(Collectors.joining(", "));
 
-        log.warn("Validation failed: {}", errors);
+        log.warn("Validation failed: {}", errorMessage);
 
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error("Validation failed", 400));
+                .body(ApiResponse.error(errorMessage, 400));
     }
 
     @ExceptionHandler(BadRequestException.class)
@@ -107,7 +109,7 @@ public class GlobalExceptionHandler {
         log.error("Runtime exception: {}", ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred: " + ex.getMessage(), 500));
+                .body(ApiResponse.error(ex.getMessage(), 500));
     }
 
     @ExceptionHandler(Exception.class)

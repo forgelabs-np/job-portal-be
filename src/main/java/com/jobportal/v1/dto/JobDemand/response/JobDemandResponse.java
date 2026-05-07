@@ -58,6 +58,7 @@ public class JobDemandResponse {
     private String terminationClause;
     private String additionalBenefits;
 
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime deadline;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

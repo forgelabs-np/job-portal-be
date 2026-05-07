@@ -16,6 +16,7 @@ import com.jobportal.v1.service.CandidateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +26,6 @@ import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -167,19 +167,18 @@ public class CandidateServiceImpl implements CandidateService {
     }
 
     @Override
-    public List<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency() {
-        // Get all agencies
-        List<User> agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY);
+    public Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable) {
+        // Get paginated agencies
+        Page<User> agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY, pageable);
 
-        List<AgencyCandidatesGroupResponse> response = new ArrayList<>();
+        List<AgencyCandidatesGroupResponse> responseList = new ArrayList<>();
 
-        for (User agency : agencies) {
+        for (User agency : agencies.getContent()) {
             List<Candidate> candidates = candidateRepository.findByAgencyId(agency.getId());
 
             if (!candidates.isEmpty()) {
                 List<CandidateInfo> candidateInfos = candidates.stream()
                         .map(candidate -> {
-                            // Get statuses
                             CandidateStatus status = statusRepository.findByCandidateId(candidate.getId()).orElse(null);
 
                             return CandidateInfo.builder()
@@ -198,7 +197,7 @@ public class CandidateServiceImpl implements CandidateService {
                         })
                         .collect(Collectors.toList());
 
-                response.add(AgencyCandidatesGroupResponse.builder()
+                responseList.add(AgencyCandidatesGroupResponse.builder()
                         .agencyId(agency.getId())
                         .agencyName(agency.getFullName())
                         .agencyEmail(agency.getEmail())
@@ -207,7 +206,7 @@ public class CandidateServiceImpl implements CandidateService {
             }
         }
 
-        return response;
+        return new PageImpl<>(responseList, pageable, agencies.getTotalElements());
     }
 
     private void mapRequestToEntity(CandidateRequest request, Candidate entity) {

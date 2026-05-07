@@ -1,19 +1,22 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.admin.request.CandidateStatusUpdateRequest;
+import com.jobportal.v1.dto.admin.response.AgencyCandidatesGroupResponse;
+import com.jobportal.v1.dto.admin.response.CandidateInfo;
 import com.jobportal.v1.dto.candidate.request.CandidateRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.dto.candidate.response.DocumentResponse;
 import com.jobportal.v1.dto.candidate.response.StatusResponse;
 import com.jobportal.v1.entity.*;
 import com.jobportal.v1.enums.DocumentType;
-import com.jobportal.v1.exception.BadRequestException;
+import com.jobportal.v1.enums.RoleEnum;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.CandidateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -118,8 +122,6 @@ public class CandidateServiceImpl implements CandidateService {
         String action = newStatus ? "enabled" : "disabled";
         log.info("Candidate {}: {} {} by agency: {}", action, candidate.getFirstName(), candidate.getLastName(), agencyId);
 
-        String message = newStatus ? "Candidate enabled successfully" : "Candidate disabled successfully";
-
         return mapToResponse(saved);
     }
 
@@ -162,6 +164,49 @@ public class CandidateServiceImpl implements CandidateService {
         log.info("Candidate status updated for candidate: {} by admin: {}", candidateId, adminId);
 
         return mapToResponse(candidate);
+    }
+
+    @Override
+    public Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable) {
+        // Get paginated agencies
+        Page<User> agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY, pageable);
+
+        List<AgencyCandidatesGroupResponse> responseList = new ArrayList<>();
+
+        for (User agency : agencies.getContent()) {
+            List<Candidate> candidates = candidateRepository.findByAgencyId(agency.getId());
+
+            if (!candidates.isEmpty()) {
+                List<CandidateInfo> candidateInfos = candidates.stream()
+                        .map(candidate -> {
+                            CandidateStatus status = statusRepository.findByCandidateId(candidate.getId()).orElse(null);
+
+                            return CandidateInfo.builder()
+                                    .id(candidate.getId())
+                                    .firstName(candidate.getFirstName())
+                                    .lastName(candidate.getLastName())
+                                    .fullName(candidate.getFirstName() + " " + candidate.getLastName())
+                                    .trade(candidate.getTrade())
+                                    .isEnabled(candidate.getIsEnabled())
+                                    .pccStatus(status != null ? status.getPccStatus().name() : "PENDING")
+                                    .slcStatus(status != null ? status.getSlcStatus().name() : "PENDING")
+                                    .workPermitStatus(status != null ? status.getWorkPermitStatus().name() : "NOT_STARTED")
+                                    .visaStatus(status != null ? status.getVisaStatus().name() : "NOT_STARTED")
+                                    .createdAt(candidate.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
+
+                responseList.add(AgencyCandidatesGroupResponse.builder()
+                        .agencyId(agency.getId())
+                        .agencyName(agency.getFullName())
+                        .agencyEmail(agency.getEmail())
+                        .candidates(candidateInfos)
+                        .build());
+            }
+        }
+
+        return new PageImpl<>(responseList, pageable, agencies.getTotalElements());
     }
 
     private void mapRequestToEntity(CandidateRequest request, Candidate entity) {

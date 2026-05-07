@@ -1,6 +1,7 @@
 package com.jobportal.v1.service;
 
 import com.jobportal.v1.dto.admin.request.CandidateStatusUpdateRequest;
+import com.jobportal.v1.dto.admin.response.AgencyCandidatesGroupResponse;
 import com.jobportal.v1.dto.candidate.request.CandidateRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,8 @@ public interface CandidateService {
 
     void deleteCandidate(Long id, Long agencyId);
 
-    // Admin method
+    // Admin methods
     CandidateResponse updateCandidateStatus(Long candidateId, CandidateStatusUpdateRequest request, Long adminId);
+
+    Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable);  // Now returns Page
 }

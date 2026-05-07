@@ -6,12 +6,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
+    // Agency methods
     Page<Candidate> findByAgencyId(Long agencyId, Pageable pageable);
+
+    List<Candidate> findByAgencyId(Long agencyId);
 
     Page<Candidate> findByAgencyIdAndIsEnabled(Long agencyId, Boolean isEnabled, Pageable pageable);
 

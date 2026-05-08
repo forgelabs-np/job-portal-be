@@ -4,6 +4,8 @@ import com.jobportal.v1.dto.JobDemand.request.JobAgencyAssignmentRequest;
 import com.jobportal.v1.dto.JobDemand.response.JobAgencyAssignmentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -19,7 +21,7 @@ public interface JobAgencyAssignmentService {
 
     List<AgencyJobDetailResponse> getJobsByAgency(Long agencyId);
 
-    List<AgencyJobResponse> getMyAssignedJobs(Long agencyId);
+    Page<AgencyJobResponse> getMyAssignedJobs(Long agencyId, Pageable pageable);
 
     boolean canAgencyApplyToJob(Long agencyId, Long jobDemandId);
 }

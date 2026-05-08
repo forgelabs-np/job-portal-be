@@ -4,10 +4,12 @@ import com.jobportal.v1.dto.JobDemand.request.JobAgencyAssignmentRequest;
 import com.jobportal.v1.dto.JobDemand.response.JobAgencyAssignmentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobResponse;
+import com.jobportal.v1.dto.country.response.CountryResponse;
 import com.jobportal.v1.entity.AgencyProfile;
 import com.jobportal.v1.entity.JobAgencyAssignment;
 import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.entity.User;
+import com.jobportal.v1.entity.master.Country;
 import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.exception.BadRequestException;
@@ -19,6 +21,8 @@ import com.jobportal.v1.repository.UserRepository;
 import com.jobportal.v1.service.JobAgencyAssignmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -258,7 +262,7 @@ public class JobAgencyAssignmentServiceImpl implements JobAgencyAssignmentServic
     }
 
     @Override
-    public List<AgencyJobResponse> getMyAssignedJobs(Long agencyId) {
+    public Page<AgencyJobResponse> getMyAssignedJobs(Long agencyId, Pageable pageable) {
         User agency = userRepository.findById(agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Agency not found"));
 
@@ -279,30 +283,68 @@ public class JobAgencyAssignmentServiceImpl implements JobAgencyAssignmentServic
             throw new BadRequestException("Please complete your agency profile before applying to jobs");
         }
 
-        List<JobAgencyAssignment> assignments = assignmentRepository.findByAgencyIdAndIsEnabledTrue(agencyId);
+        // Get paginated assignments
+        Page<JobAgencyAssignment> assignments = assignmentRepository.findByAgencyIdAndIsEnabledTrue(agencyId, pageable);
 
-        return assignments.stream()
-                .filter(assignment -> assignment.getJobDemand().getIsActive())
-                .filter(assignment -> assignment.getJobDemand().getStatus() == JobStatus.OPEN)
-                .filter(assignment -> assignment.getJobDemand().getRemainingSlots() > 0)
-                .map(assignment -> {
-                    JobDemand job = assignment.getJobDemand();
-                    return AgencyJobResponse.builder()
-                            .id(job.getId())
-                            .title(job.getTitle())
-                            .country(job.getCountry() != null ? job.getCountry().getName() : null)
-                            .city(job.getCity())
-                            .totalSlots(job.getTotalSlots())
-                            .filledSlots(job.getFilledSlots())
-                            .remainingSlots(job.getRemainingSlots())
-                            .salaryAmount(job.getSalaryAmount())
-                            .salaryCurrency(job.getSalaryCurrency())
-                            .deadline(job.getDeadline() != null ?
-                                    job.getDeadline().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null)
-                            .isAssigned(true)
-                            .build();
-                })
-                .collect(Collectors.toList());
+        return assignments.map(assignment -> {
+            JobDemand job = assignment.getJobDemand();
+            return AgencyJobResponse.builder()
+                    .id(job.getId())
+                    .title(job.getTitle())
+                    .country(mapToCountryResponse(job.getCountry()))
+                    .city(job.getCity())
+                    .description(job.getDescription())
+                    .requirements(job.getRequirements())
+                    .totalSlots(job.getTotalSlots())
+                    .filledSlots(job.getFilledSlots())
+                    .remainingSlots(job.getRemainingSlots())
+                    .appliedCount(job.getAppliedCount())
+                    .status(job.getStatus())
+                    .isOpen(job.isOpen())
+                    .salaryAmount(job.getSalaryAmount())
+                    .salaryCurrency(job.getSalaryCurrency())
+                    .salaryPeriod(job.getSalaryPeriod())
+                    .genderPreference(job.getGenderPreference())
+                    .preferredNationalities(job.getPreferredNationalities())
+                    .minExperienceYears(job.getMinExperienceYears())
+                    .maxExperienceYears(job.getMaxExperienceYears())
+                    .requiredSkills(job.getRequiredSkills())
+                    .educationLevel(job.getEducationLevel())
+                    .workingHoursPerWeek(job.getWorkingHoursPerWeek())
+                    .contractDurationYears(job.getContractDurationYears())
+                    .overtimePolicy(job.getOvertimePolicy())
+                    .accommodationProvided(job.getAccommodationProvided())
+                    .accommodationDetails(job.getAccommodationDetails())
+                    .foodProvided(job.getFoodProvided())
+                    .foodDetails(job.getFoodDetails())
+                    .transportationProvided(job.getTransportationProvided())
+                    .transportationDetails(job.getTransportationDetails())
+                    .medicalInsuranceProvided(job.getMedicalInsuranceProvided())
+                    .medicalInsuranceDetails(job.getMedicalInsuranceDetails())
+                    .airTicketProvided(job.getAirTicketProvided())
+                    .airTicketDetails(job.getAirTicketDetails())
+                    .leavePolicy(job.getLeavePolicy())
+                    .probationPeriodMonths(job.getProbationPeriodMonths())
+                    .terminationClause(job.getTerminationClause())
+                    .additionalBenefits(job.getAdditionalBenefits())
+                    .deadline(job.getDeadline())
+                    .createdAt(job.getCreatedAt())
+                    .updatedAt(job.getUpdatedAt())
+                    .isAssigned(true)
+                    .build();
+        });
+    }
+
+    private CountryResponse mapToCountryResponse(Country country) {
+        if (country == null) return null;
+        return CountryResponse.builder()
+                .id(country.getId())
+                .name(country.getName())
+                .code(country.getCode())
+                .currencyCode(country.getCurrencyCode())
+                .currencySymbol(country.getCurrencySymbol())
+                .isEnabled(country.getIsEnabled())
+                .build();
     }
 
     @Override

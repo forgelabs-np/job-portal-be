@@ -3,6 +3,7 @@ import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.agency.request.AgencyProfileRequest;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
+import com.jobportal.v1.dto.agency.response.AgencyDashboardResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AgencyProfileService;
@@ -24,6 +25,16 @@ import org.springframework.web.bind.annotation.*;
 public class AgencyController {
 
     private final AgencyProfileService agencyProfileService;
+
+
+    @Operation(summary = "Agency Dashboard", description = "Get dashboard statistics and activities for agency")
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<AgencyDashboardResponse>> getDashboard(
+            @CurrentUser UserPrincipal agency) {
+
+        AgencyDashboardResponse response = agencyProfileService.getAgencyDashboard(agency.getId());
+        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+    }
 
     @Operation(summary = "Create or Update Agency Profile", description = "Agency creates or updates their profile")
     @PostMapping("/profile")

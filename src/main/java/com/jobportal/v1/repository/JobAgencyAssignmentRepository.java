@@ -1,6 +1,8 @@
 package com.jobportal.v1.repository;
 
 import com.jobportal.v1.entity.JobAgencyAssignment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -35,4 +37,6 @@ public interface JobAgencyAssignmentRepository extends JpaRepository<JobAgencyAs
     @Transactional
     @Query("DELETE FROM JobAgencyAssignment j WHERE j.agency.id = :agencyId")
     void deleteByAgencyId(@Param("agencyId") Long agencyId);
+
+    Page<JobAgencyAssignment> findByAgencyIdAndIsEnabledTrue(Long agencyId, Pageable pageable);
 }

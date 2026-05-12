@@ -2,18 +2,23 @@ package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.agency.request.AgencyProfileRequest;
 import com.jobportal.v1.dto.agency.response.*;
+import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.entity.*;
 import com.jobportal.v1.enums.ApplicationStatus;
+import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.AgencyProfileService;
+import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -26,10 +31,12 @@ import java.util.stream.Collectors;
 public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     private final AgencyProfileRepository agencyProfileRepository;
+    private final AgencyDocumentRepository agencyDocumentRepository;
     private final UserRepository userRepository;
     private final CandidateRepository candidateRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final JobAgencyAssignmentRepository assignmentRepository;
+    private final FileUploadUtil fileUploadUtil;
 
     @Override
     @Transactional
@@ -39,10 +46,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
         if (!user.isAgency()) {
             throw new BadRequestException("Only agencies can have a profile");
-        }
-
-        if (!user.isApproved()) {
-            throw new BadRequestException("Your account is not approved yet. Please wait for admin approval.");
         }
 
         AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
@@ -61,8 +64,9 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         profile.setContactPersonEmail(request.getContactPersonEmail());
         profile.setContactPersonPhone(request.getContactPersonPhone());
 
-        // Check if profile is complete (all required fields filled)
-        profile.setProfileComplete(isProfileDataComplete(request));
+        // Check if basic profile is complete
+        boolean isBasicComplete = isProfileDataComplete(request);
+        profile.setProfileComplete(isBasicComplete);
 
         AgencyProfile savedProfile = agencyProfileRepository.save(profile);
 
@@ -86,38 +90,68 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     @Override
     public boolean isProfileComplete(Long userId) {
-        return agencyProfileRepository.findByUserId(userId)
-                .map(AgencyProfile::isProfileComplete)
-                .orElse(false);
+        AgencyProfile profile = agencyProfileRepository.findByUserId(userId).orElse(null);
+        if (profile == null) return false;
+        return profile.isProfileComplete() && profile.isProfileApproved();
     }
 
-    private boolean isProfileDataComplete(AgencyProfileRequest request) {
-        return request.getCompanyName() != null && !request.getCompanyName().trim().isEmpty() &&
-                request.getContactPersonName() != null && !request.getContactPersonName().trim().isEmpty() &&
-                request.getContactPersonEmail() != null && !request.getContactPersonEmail().trim().isEmpty();
+    @Override
+    @Transactional
+    public AgencyDocumentResponse uploadDocument(Long userId, String documentType, MultipartFile file) {
+        AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found. Please create profile first."));
+
+        if (file.isEmpty()) {
+            throw new BadRequestException("File is empty");
+        }
+
+        try {
+            String filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
+
+            AgencyDocument document = new AgencyDocument();
+            document.setAgencyProfile(profile);
+            document.setDocumentType(documentType);
+            document.setDocumentName(file.getOriginalFilename());
+            document.setDocumentPath(filePath);
+            document.setFileSize(file.getSize());
+            document.setContentType(file.getContentType());
+            document.setStatus(ApprovalStatus.PENDING);
+
+            AgencyDocument saved = agencyDocumentRepository.save(document);
+            log.info("Document uploaded for agency: {}, type: {}", userId, documentType);
+
+            return toDocumentResponse(saved);
+
+        } catch (IOException e) {
+            log.error("Failed to upload document", e);
+            throw new RuntimeException("Failed to upload document", e);
+        }
     }
 
-    private AgencyProfileResponse toResponse(AgencyProfile profile) {
-        return AgencyProfileResponse.builder()
-                .id(profile.getId())
-                .userId(profile.getUser().getId())
-                .companyName(profile.getCompanyName())
-                .companyDescription(profile.getCompanyDescription())
-                .companyWebsite(profile.getCompanyWebsite())
-                .companyLogoUrl(profile.getCompanyLogoUrl())
-                .companyAddress(profile.getCompanyAddress())
-                .companyPhone(profile.getCompanyPhone())
-                .registrationNumber(profile.getRegistrationNumber())
-                .taxId(profile.getTaxId())
-                .contactPersonName(profile.getContactPersonName())
-                .contactPersonEmail(profile.getContactPersonEmail())
-                .contactPersonPhone(profile.getContactPersonPhone())
-                .profileComplete(profile.isProfileComplete())
-                .createdAt(profile.getCreatedAt())
-                .updatedAt(profile.getUpdatedAt())
-                .build();
+    @Override
+    public List<AgencyDocumentResponse> getMyDocuments(Long userId) {
+        AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
+
+        return agencyDocumentRepository.findByAgencyProfileId(profile.getId()).stream()
+                .map(this::toDocumentResponse)
+                .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional
+    public void deleteDocument(Long userId, Long documentId) {
+        AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
+
+        AgencyDocument document = agencyDocumentRepository.findByIdAndAgencyProfileId(documentId, profile.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+
+        fileUploadUtil.deleteFile(document.getDocumentPath());
+        agencyDocumentRepository.delete(document);
+
+        log.info("Document deleted for agency: {}, documentId: {}", userId, documentId);
+    }
 
     @Override
     public AgencyDashboardResponse getAgencyDashboard(Long agencyId) {
@@ -179,7 +213,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Recent Candidates (last 5)
         List<AgencyRecentCandidate> recentCandidates = allCandidates.stream()
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .limit(5)
@@ -251,6 +284,54 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .recentJobs(recentJobs)
                 .statusDistribution(statusDistribution)
                 .weeklyActivity(weeklyActivity)
+                .build();
+    }
+
+    private boolean isProfileDataComplete(AgencyProfileRequest request) {
+        return request.getCompanyName() != null && !request.getCompanyName().trim().isEmpty() &&
+                request.getContactPersonName() != null && !request.getContactPersonName().trim().isEmpty() &&
+                request.getContactPersonEmail() != null && !request.getContactPersonEmail().trim().isEmpty();
+    }
+
+    private AgencyProfileResponse toResponse(AgencyProfile profile) {
+        List<AgencyDocumentResponse> documents = agencyDocumentRepository.findByAgencyProfileId(profile.getId()).stream()
+                .map(this::toDocumentResponse)
+                .collect(Collectors.toList());
+
+        return AgencyProfileResponse.builder()
+                .id(profile.getId())
+                .userId(profile.getUser().getId())
+                .companyName(profile.getCompanyName())
+                .companyDescription(profile.getCompanyDescription())
+                .companyWebsite(profile.getCompanyWebsite())
+                .companyLogoUrl(profile.getCompanyLogoUrl())
+                .companyAddress(profile.getCompanyAddress())
+                .companyPhone(profile.getCompanyPhone())
+                .registrationNumber(profile.getRegistrationNumber())
+                .taxId(profile.getTaxId())
+                .contactPersonName(profile.getContactPersonName())
+                .contactPersonEmail(profile.getContactPersonEmail())
+                .contactPersonPhone(profile.getContactPersonPhone())
+                .profileComplete(profile.isProfileComplete())
+                .profileApprovalStatus(profile.getProfileApprovalStatus().name())
+                .profileRejectionReason(profile.getProfileRejectionReason())
+                .documents(documents)
+                .createdAt(profile.getCreatedAt())
+                .updatedAt(profile.getUpdatedAt())
+                .build();
+    }
+
+    private AgencyDocumentResponse toDocumentResponse(AgencyDocument document) {
+        return AgencyDocumentResponse.builder()
+                .id(document.getId())
+                .documentType(document.getDocumentType())
+                .documentName(document.getDocumentName())
+                .documentPath(document.getDocumentPath())
+                .fileSize(document.getFileSize())
+                .contentType(document.getContentType())
+                .status(document.getStatus().name())
+                .rejectionReason(document.getRejectionReason())
+                .uploadedAt(document.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                 .build();
     }
 }

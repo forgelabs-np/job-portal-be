@@ -55,15 +55,15 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("Agency " + request.getData().getAction().toLowerCase() + "d successfully", response));
     }
 
-    @Operation(summary = "Get Agencies by Status", description = "Get all agencies filtered by approval status")
-    @GetMapping("/agencies")
-    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getAgenciesByStatus(
-            @RequestParam(required = false) ApprovalStatus status) {
-
-        List<AgencyApprovalResponse> response = adminService.getAgenciesByStatus(status);
-        String message = status == null ? "All agencies retrieved" : status + " agencies retrieved";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
-    }
+//    @Operation(summary = "Get Agencies by Status", description = "Get all agencies filtered by approval status")
+//    @GetMapping("/agencies")
+//    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getAgenciesByStatus(
+//            @RequestParam(required = false) ApprovalStatus status) {
+//
+//        List<AgencyApprovalResponse> response = adminService.getAgenciesByStatus(status);
+//        String message = status == null ? "All agencies retrieved" : status + " agencies retrieved";
+//        return ResponseEntity.ok(ApiResponse.success(message, response));
+//    }
 
     @Operation(summary = "Assign Agencies to Job", description = "Assign multiple agencies to a job demand")
     @PostMapping("/jobs/assign")

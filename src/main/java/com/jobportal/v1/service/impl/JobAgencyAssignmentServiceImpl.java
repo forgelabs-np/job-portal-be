@@ -279,11 +279,14 @@ public class JobAgencyAssignmentServiceImpl implements JobAgencyAssignmentServic
         }
 
         AgencyProfile profile = agencyProfileRepository.findByUserId(agencyId).orElse(null);
-        if (profile == null || !profile.isProfileComplete()) {
-            throw new BadRequestException("Please complete your agency profile before applying to jobs");
+        if (profile == null) {
+            throw new BadRequestException("Please create your agency profile first");
         }
 
-        // Get paginated assignments
+        if (!profile.isProfileApproved()) {
+            throw new BadRequestException("Your agency profile is pending admin approval. Please wait for approval.");
+        }
+
         Page<JobAgencyAssignment> assignments = assignmentRepository.findByAgencyIdAndIsEnabledTrue(agencyId, pageable);
 
         return assignments.map(assignment -> {

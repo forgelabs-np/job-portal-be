@@ -91,15 +91,6 @@ public class AuthServiceImpl implements AuthService {
             throw new BadCredentialsException("Please verify your email before logging in.");
         }
 
-        if (expectedRole == RoleEnum.AGENCY) {
-            if (user.isPending()) {
-                throw new AgencyPendingException("Your account is pending admin approval. You will be notified once approved.");
-            }
-            if (user.isRejected()) {
-                throw new AgencyRejectedException("Your account has been rejected. Reason: " + user.getRejectionReason());
-            }
-        }
-
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())

@@ -16,4 +16,6 @@ public interface AgencyDocumentRepository extends JpaRepository<AgencyDocument, 
     Optional<AgencyDocument> findByIdAndAgencyProfileId(Long id, Long agencyProfileId);
 
     List<AgencyDocument> findByAgencyProfileIdAndStatus(Long agencyProfileId, ApprovalStatus status);
+
+    Optional<AgencyDocument> findByAgencyProfileIdAndDocumentType(Long agencyProfileId, String documentType);
 }

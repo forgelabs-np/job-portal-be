@@ -106,21 +106,51 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         }
 
         try {
-            String filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
+            AgencyDocument existingDocument = agencyDocumentRepository
+                    .findByAgencyProfileIdAndDocumentType(profile.getId(), documentType)
+                    .orElse(null);
 
-            AgencyDocument document = new AgencyDocument();
-            document.setAgencyProfile(profile);
-            document.setDocumentType(documentType);
-            document.setDocumentName(file.getOriginalFilename());
-            document.setDocumentPath(filePath);
-            document.setFileSize(file.getSize());
-            document.setContentType(file.getContentType());
-            document.setStatus(ApprovalStatus.PENDING);
+            String filePath;
 
-            AgencyDocument saved = agencyDocumentRepository.save(document);
-            log.info("Document uploaded for agency: {}, type: {}", userId, documentType);
+            if (existingDocument != null) {
+                // Delete old file from storage
+                fileUploadUtil.deleteFile(existingDocument.getDocumentPath());
 
-            return toDocumentResponse(saved);
+                // Upload new file
+                filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
+
+                // Update existing document record
+                existingDocument.setDocumentName(file.getOriginalFilename());
+                existingDocument.setDocumentPath(filePath);
+                existingDocument.setFileSize(file.getSize());
+                existingDocument.setContentType(file.getContentType());
+                existingDocument.setStatus(ApprovalStatus.PENDING);
+                existingDocument.setRejectionReason(null);
+                existingDocument.setUpdatedAt(LocalDateTime.now());
+
+                AgencyDocument updated = agencyDocumentRepository.save(existingDocument);
+                log.info("Document re-uploaded and updated for agency: {}, type: {}", userId, documentType);
+
+                return toDocumentResponse(updated);
+            } else {
+                // Upload new file
+                filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
+
+                // Create new document record
+                AgencyDocument document = new AgencyDocument();
+                document.setAgencyProfile(profile);
+                document.setDocumentType(documentType);
+                document.setDocumentName(file.getOriginalFilename());
+                document.setDocumentPath(filePath);
+                document.setFileSize(file.getSize());
+                document.setContentType(file.getContentType());
+                document.setStatus(ApprovalStatus.PENDING);
+
+                AgencyDocument saved = agencyDocumentRepository.save(document);
+                log.info("New document uploaded for agency: {}, type: {}", userId, documentType);
+
+                return toDocumentResponse(saved);
+            }
 
         } catch (IOException e) {
             log.error("Failed to upload document", e);

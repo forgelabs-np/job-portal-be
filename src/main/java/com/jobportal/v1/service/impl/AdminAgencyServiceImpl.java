@@ -87,7 +87,7 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
         }
 
         return profiles.stream()
-                .map(this::toProfileResponse)
+                .map(this::toProfileListResponse)  // Use list response (NO documents)
                 .collect(Collectors.toList());
     }
 
@@ -100,7 +100,6 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
         ApprovalStatus status = request.getStatus();
 
         if (status == ApprovalStatus.APPROVED) {
-            // Check if all documents are approved
             List<AgencyDocument> pendingDocs = agencyDocumentRepository.findByAgencyProfileIdAndStatus(
                     profile.getId(), ApprovalStatus.PENDING);
 
@@ -131,14 +130,14 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
 
         agencyProfileRepository.save(profile);
 
-        return toProfileResponse(profile);
+        return toProfileDetailResponse(profile);
     }
 
     @Override
     public AgencyProfileResponse getProfileDetails(Long userId) {
         AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Agency profile not found"));
-        return toProfileResponse(profile);
+        return toProfileDetailResponse(profile);
     }
 
     private AgencyDocumentResponse toDocumentResponse(AgencyDocument document) {
@@ -155,7 +154,8 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
                 .build();
     }
 
-    private AgencyProfileResponse toProfileResponse(AgencyProfile profile) {
+    // LIST RESPONSE - NO DOCUMENTS (for performance)
+    private AgencyProfileResponse toProfileListResponse(AgencyProfile profile) {
         return AgencyProfileResponse.builder()
                 .id(profile.getId())
                 .userId(profile.getUser().getId())
@@ -173,6 +173,36 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
                 .profileComplete(profile.isProfileComplete())
                 .profileApprovalStatus(profile.getProfileApprovalStatus().name())
                 .profileRejectionReason(profile.getProfileRejectionReason())
+                .documents(null)
+                .createdAt(profile.getCreatedAt())
+                .updatedAt(profile.getUpdatedAt())
+                .build();
+    }
+
+    // DETAIL RESPONSE - WITH DOCUMENTS (for single profile view)
+    private AgencyProfileResponse toProfileDetailResponse(AgencyProfile profile) {
+        List<AgencyDocumentResponse> documents = agencyDocumentRepository.findByAgencyProfileId(profile.getId()).stream()
+                .map(this::toDocumentResponse)
+                .collect(Collectors.toList());
+
+        return AgencyProfileResponse.builder()
+                .id(profile.getId())
+                .userId(profile.getUser().getId())
+                .companyName(profile.getCompanyName())
+                .companyDescription(profile.getCompanyDescription())
+                .companyWebsite(profile.getCompanyWebsite())
+                .companyLogoUrl(profile.getCompanyLogoUrl())
+                .companyAddress(profile.getCompanyAddress())
+                .companyPhone(profile.getCompanyPhone())
+                .registrationNumber(profile.getRegistrationNumber())
+                .taxId(profile.getTaxId())
+                .contactPersonName(profile.getContactPersonName())
+                .contactPersonEmail(profile.getContactPersonEmail())
+                .contactPersonPhone(profile.getContactPersonPhone())
+                .profileComplete(profile.isProfileComplete())
+                .profileApprovalStatus(profile.getProfileApprovalStatus().name())
+                .profileRejectionReason(profile.getProfileRejectionReason())
+                .documents(documents)
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())
                 .build();

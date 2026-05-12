@@ -49,7 +49,9 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://localhost:8080",
-                "http://192.168.1.119:3000"
+                "http://192.168.1.119:3000",
+                "http://192.168.1.10:3000",  // Add frontend IP
+                "http://192.168.1.109:8080"   // Add your backend IP
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
@@ -74,7 +76,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger endpoints - MUST BE PERMITTED
+                        // Swagger endpoints
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -85,15 +87,23 @@ public class SecurityConfig {
                                 "/api-docs/**",
                                 "/webjars/**"
                         ).permitAll()
+
+                        // IMPORTANT: Allow access to uploaded files
+                        .requestMatchers("/uploads/**").permitAll()
+
                         // Public auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+
                         // Role-based endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/agency/**").hasRole("AGENCY")
+
                         // Public test endpoints
                         .requestMatchers("/api/public/**", "/api/test/**","/api/countries/enabled").permitAll()
+
                         // Actuator
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

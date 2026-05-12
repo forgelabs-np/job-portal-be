@@ -76,3 +76,9 @@ springdoc:
     doc-expansion: none
   packages-to-scan: com.jobportal.v1.controller
   paths-to-match: /api/**
+
+file:
+  upload:
+    base-dir: uploads
+    max-file-size: 5242880  # 5MB in bytes
+    allowed-extensions: png,jpg,jpeg,pdf,doc,docx

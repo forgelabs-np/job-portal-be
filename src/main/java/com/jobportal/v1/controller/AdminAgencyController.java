@@ -26,7 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/agency")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin - Agency Management", description = "Admin Agency Management APIs")
+@Tag(name = "Admin - Agency Management", description = "Admin approving / rejecting documents and profile APIs")
 public class AdminAgencyController {
 
     private final AdminAgencyService adminAgencyService;

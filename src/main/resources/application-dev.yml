@@ -56,6 +56,11 @@ logging:
     org.springdoc: DEBUG
     org.hibernate.type: TRACE
 
+app:
+  test:
+    mode: false
+    static-otp: "123456"
+
 springdoc:
   packages-to-scan: com.jobportal.v1.controller
   paths-to-match: /api/**

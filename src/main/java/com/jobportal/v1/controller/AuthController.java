@@ -2,6 +2,7 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
+import com.jobportal.v1.dto.security.CurrentUserResponse;
 import com.jobportal.v1.dto.security.request.*;
 import com.jobportal.v1.dto.security.response.LoginResponse;
 import com.jobportal.v1.dto.security.response.SignupResponse;
@@ -10,6 +11,7 @@ import com.jobportal.v1.entity.User;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AuthService;
+import com.jobportal.v1.service.CurrentUserService;
 import com.jobportal.v1.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,11 +29,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*", maxAge = 3600)
-@Tag(name = "Authentication", description = "Authentication APIs for Admin and Agency")
+@Tag(name = "Authentication", description = "Authentication APIs")
 public class AuthController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final CurrentUserService currentUserService;
 
     @Operation(summary = "Admin Login", description = "Authenticate admin user")
     @PostMapping("/admin/login")
@@ -51,7 +54,16 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Agency login successful", response));
     }
 
-    @Operation(summary = "User Registration", description = "Register a new user (sends verification OTP)")
+    @Operation(summary = "Candidate Login", description = "Authenticate candidate user")
+    @PostMapping("/candidate/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> candidateLogin(
+            @Valid @RequestBody ApiRequest<LoginRequest> request) {
+
+        LoginResponse response = authService.authenticateCandidate(request.getData());
+        return ResponseEntity.ok(ApiResponse.success("Candidate login successful", response));
+    }
+
+    @Operation(summary = "User Registration", description = "Unified registration for Admin, Agency, and Candidate")
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> registerUser(
             @Valid @RequestBody ApiRequest<SignupRequest> request) {
@@ -160,13 +172,15 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 
-    @Operation(summary = "Get Current User", description = "Get currently authenticated user info")
+
+    @Operation(summary = "Get Current User", description = "Get currently authenticated user info with role-specific profile")
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<UserPrincipal>> getCurrentUser(
+    public ResponseEntity<ApiResponse<CurrentUserResponse>> getCurrentUser(
             @CurrentUser UserPrincipal userPrincipal) {
 
-        return ResponseEntity.ok(ApiResponse.success("Current user retrieved", userPrincipal));
+        CurrentUserResponse response = currentUserService.getCurrentUserProfile(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Current user retrieved", response));
     }
 
     private String getClientIp(HttpServletRequest request) {

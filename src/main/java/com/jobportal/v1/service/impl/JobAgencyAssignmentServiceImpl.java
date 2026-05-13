@@ -40,12 +40,11 @@ public class JobAgencyAssignmentServiceImpl implements JobAgencyAssignmentServic
     private final JobAgencyAssignmentRepository assignmentRepository;
     private final JobDemandRepository jobDemandRepository;
     private final UserRepository userRepository;
-    private final AgencyProfileRepository agencyProfileRepository;  // Add this
+    private final AgencyProfileRepository agencyProfileRepository;
 
     @Override
     @Transactional
     public List<JobAgencyAssignmentResponse> assignAgenciesToJob(JobAgencyAssignmentRequest request, Long adminId) {
-        // Validate Job Demand exists and is active
         JobDemand jobDemand = jobDemandRepository.findById(request.getJobDemandId())
                 .orElseThrow(() -> new ResourceNotFoundException("Job demand not found"));
 

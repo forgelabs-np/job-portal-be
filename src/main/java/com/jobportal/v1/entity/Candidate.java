@@ -1,5 +1,7 @@
 package com.jobportal.v1.entity;
 
+import com.jobportal.v1.enums.CandidateType;
+import com.jobportal.v1.enums.CreatedByType;
 import com.jobportal.v1.enums.MaritalStatus;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -19,8 +21,12 @@ public class Candidate {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "agency_id", nullable = false)
+    @JoinColumn(name = "agency_id", nullable = true)
     private User agency;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = true)
+    private User user;
 
     @Column(name = "first_name", nullable = false)
     private String firstName;
@@ -58,6 +64,14 @@ public class Candidate {
     @Column(name = "created_by")
     private Long createdBy;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "candidate_type", nullable = false)
+    private CandidateType candidateType = CandidateType.AGENCY_MANAGED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "created_by_type", nullable = false)
+    private CreatedByType createdByType = CreatedByType.AGENCY;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -65,4 +79,20 @@ public class Candidate {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+
+    public boolean isAgencyManaged() {
+        return candidateType == CandidateType.AGENCY_MANAGED;
+    }
+
+    public boolean isSelfRegistered() {
+        return candidateType == CandidateType.SELF_REGISTERED;
+    }
+
+    public boolean hasLoginAccess() {
+        return user != null;
+    }
 }

@@ -50,8 +50,8 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "http://localhost:8080",
                 "http://192.168.1.119:3000",
-                "http://192.168.1.10:3000",  // Add frontend IP
-                "http://192.168.1.109:8080"   // Add your backend IP
+                "http://192.168.1.10:3000",
+                "http://192.168.1.109:8080"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
@@ -76,7 +76,6 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger endpoints
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -88,23 +87,18 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
 
-                        // IMPORTANT: Allow access to uploaded files
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // Public auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // Role-based endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/agency/**").hasRole("AGENCY")
+                        .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")
 
-                        // Public test endpoints
                         .requestMatchers("/api/public/**", "/api/test/**","/api/countries/enabled").permitAll()
 
-                        // Actuator
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
 
-                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);

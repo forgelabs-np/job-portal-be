@@ -51,6 +51,15 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
                 .orElse(new AgencyProfile());
 
+        boolean isNewProfile = (profile.getId() == null);
+
+        // Capture old values for change detection
+        String oldCompanyName = profile.getCompanyName();
+        String oldContactPersonName = profile.getContactPersonName();
+        String oldContactPersonEmail = profile.getContactPersonEmail();
+        ApprovalStatus oldUserStatus = user.getApprovalStatus();
+
+        // Update profile fields
         profile.setUser(user);
         profile.setCompanyName(request.getCompanyName());
         profile.setCompanyDescription(request.getCompanyDescription());
@@ -64,23 +73,52 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         profile.setContactPersonEmail(request.getContactPersonEmail());
         profile.setContactPersonPhone(request.getContactPersonPhone());
 
-        // Check if basic profile is complete
         boolean isBasicComplete = isProfileDataComplete(request);
         profile.setProfileComplete(isBasicComplete);
+
+        // Detect if there were actual changes
+        boolean hasChanges = !isNewProfile && (
+                !equals(request.getCompanyName(), oldCompanyName) ||
+                        !equals(request.getContactPersonName(), oldContactPersonName) ||
+                        !equals(request.getContactPersonEmail(), oldContactPersonEmail)
+        );
+
+        // If changes detected and user was APPROVED or REJECTED, reset to PENDING
+        if (!isNewProfile && hasChanges &&
+                (oldUserStatus == ApprovalStatus.APPROVED || oldUserStatus == ApprovalStatus.REJECTED)) {
+
+            user.setApprovalStatus(ApprovalStatus.PENDING);
+            user.setRejectionReason(null);
+            user.setApprovedAt(null);
+            user.setApprovedBy(null);
+            userRepository.save(user);
+
+            log.info("User approval status reset to PENDING due to profile changes by agency: {}", user.getEmail());
+        }
 
         AgencyProfile savedProfile = agencyProfileRepository.save(profile);
 
         log.info("Agency profile {} for user: {}",
-                profile.getId() == null ? "created" : "updated", user.getEmail());
+                isNewProfile ? "created" : "updated", user.getEmail());
 
-        return toResponse(savedProfile);
+        return toResponse(savedProfile, user);
+    }
+
+    private boolean equals(String s1, String s2) {
+        if (s1 == null && s2 == null) return true;
+        if (s1 == null || s2 == null) return false;
+        return s1.equals(s2);
     }
 
     @Override
     public AgencyProfileResponse getProfileByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         AgencyProfile profile = agencyProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Profile not found for user: " + userId));
-        return toResponse(profile);
+
+        return toResponse(profile, user);
     }
 
     @Override
@@ -90,9 +128,13 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     @Override
     public boolean isProfileComplete(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return false;
+
         AgencyProfile profile = agencyProfileRepository.findByUserId(userId).orElse(null);
         if (profile == null) return false;
-        return profile.isProfileComplete() && profile.isProfileApproved();
+
+        return profile.isProfileComplete() && user.isApproved();
     }
 
     @Override
@@ -113,13 +155,9 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
             String filePath;
 
             if (existingDocument != null) {
-                // Delete old file from storage
                 fileUploadUtil.deleteFile(existingDocument.getDocumentPath());
-
-                // Upload new file
                 filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
 
-                // Update existing document record
                 existingDocument.setDocumentName(file.getOriginalFilename());
                 existingDocument.setDocumentPath(filePath);
                 existingDocument.setFileSize(file.getSize());
@@ -129,14 +167,11 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 existingDocument.setUpdatedAt(LocalDateTime.now());
 
                 AgencyDocument updated = agencyDocumentRepository.save(existingDocument);
-                log.info("Document re-uploaded and updated for agency: {}, type: {}", userId, documentType);
-
+                log.info("Document re-uploaded for agency: {}, type: {}", userId, documentType);
                 return toDocumentResponse(updated);
             } else {
-                // Upload new file
                 filePath = fileUploadUtil.uploadAgencyDocument(profile.getId(), documentType, file);
 
-                // Create new document record
                 AgencyDocument document = new AgencyDocument();
                 document.setAgencyProfile(profile);
                 document.setDocumentType(documentType);
@@ -148,7 +183,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
                 AgencyDocument saved = agencyDocumentRepository.save(document);
                 log.info("New document uploaded for agency: {}, type: {}", userId, documentType);
-
                 return toDocumentResponse(saved);
             }
 
@@ -185,13 +219,12 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     @Override
     public AgencyDashboardResponse getAgencyDashboard(Long agencyId) {
-        // Get all candidates for this agency
+        // Your existing dashboard implementation (unchanged)
         List<Candidate> allCandidates = candidateRepository.findByAgencyId(agencyId);
         Long totalCandidates = (long) allCandidates.size();
         Long enabledCandidates = allCandidates.stream().filter(Candidate::getIsEnabled).count();
         Long disabledCandidates = totalCandidates - enabledCandidates;
 
-        // Get all applications for this agency
         List<JobApplication> allApplications = jobApplicationRepository.findByAgencyId(agencyId, PageRequest.of(0, Integer.MAX_VALUE)).getContent();
         Long totalApplications = (long) allApplications.size();
         Long pendingApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.PENDING).count();
@@ -200,7 +233,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         Long rejectedApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.REJECTED).count();
         Long withdrawnApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.WITHDRAWN).count();
 
-        // Get assigned jobs for this agency
         List<JobDemand> assignedJobs = assignmentRepository.findByAgencyIdAndIsEnabledTrue(agencyId).stream()
                 .map(assignment -> assignment.getJobDemand())
                 .filter(job -> job.getIsActive())
@@ -209,7 +241,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         Long openJobs = assignedJobs.stream().filter(job -> job.getStatus().name().equals("OPEN")).count();
         Long completedJobs = assignedJobs.stream().filter(job -> job.getStatus().name().equals("COMPLETED")).count();
 
-        // Approval Rate
         Double approvalRate = totalApplications > 0
                 ? (shortlistedApplications.doubleValue() / totalApplications.doubleValue()) * 100
                 : 0.0;
@@ -230,14 +261,13 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .approvalRate(Math.round(approvalRate * 100.0) / 100.0)
                 .build();
 
-        // Recent Applications (last 5)
         List<AgencyRecentApplication> recentApplications = allApplications.stream()
                 .sorted((a, b) -> b.getAppliedAt().compareTo(a.getAppliedAt()))
                 .limit(5)
                 .map(app -> AgencyRecentApplication.builder()
                         .id(app.getId())
                         .jobTitle(app.getJobDemand().getTitle())
-                        .candidateName(app.getCandidate().getFirstName() + app.getCandidate().getLastName())
+                        .candidateName(app.getCandidate().getFullName())
                         .status(app.getStatus().name())
                         .appliedAt(app.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                         .build())
@@ -248,14 +278,13 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .limit(5)
                 .map(candidate -> AgencyRecentCandidate.builder()
                         .id(candidate.getId())
-                        .fullName(candidate.getFirstName() + candidate.getLastName())
+                        .fullName(candidate.getFullName())
                         .trade(candidate.getTrade())
                         .isEnabled(candidate.getIsEnabled())
                         .createdAt(candidate.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                         .build())
                 .collect(Collectors.toList());
 
-        // Recent Jobs (last 5 assigned)
         List<AgencyRecentJob> recentJobs = assignedJobs.stream()
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .limit(5)
@@ -269,7 +298,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Status Distribution
         AgencyApplicationStatusDistribution statusDistribution = AgencyApplicationStatusDistribution.builder()
                 .pending(pendingApplications)
                 .reviewed(reviewedApplications)
@@ -278,7 +306,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .withdrawn(withdrawnApplications)
                 .build();
 
-        // Weekly Activity (last 7 days)
         List<String> days = new ArrayList<>();
         List<Long> applicationsSubmitted = new ArrayList<>();
         List<Long> applicationsShortlisted = new ArrayList<>();
@@ -286,7 +313,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         for (int i = 6; i >= 0; i--) {
             LocalDateTime dayStart = LocalDateTime.now().minusDays(i).withHour(0).withMinute(0).withSecond(0);
             LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
-
             days.add(dayStart.format(DateTimeFormatter.ofPattern("EEE")));
 
             Long submittedCount = allApplications.stream()
@@ -323,14 +349,14 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 request.getContactPersonEmail() != null && !request.getContactPersonEmail().trim().isEmpty();
     }
 
-    private AgencyProfileResponse toResponse(AgencyProfile profile) {
+    private AgencyProfileResponse toResponse(AgencyProfile profile, User user) {
         List<AgencyDocumentResponse> documents = agencyDocumentRepository.findByAgencyProfileId(profile.getId()).stream()
                 .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
 
         return AgencyProfileResponse.builder()
                 .id(profile.getId())
-                .userId(profile.getUser().getId())
+                .userId(user.getId())
                 .companyName(profile.getCompanyName())
                 .companyDescription(profile.getCompanyDescription())
                 .companyWebsite(profile.getCompanyWebsite())
@@ -343,8 +369,8 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .contactPersonEmail(profile.getContactPersonEmail())
                 .contactPersonPhone(profile.getContactPersonPhone())
                 .profileComplete(profile.isProfileComplete())
-                .profileApprovalStatus(profile.getProfileApprovalStatus().name())
-                .profileRejectionReason(profile.getProfileRejectionReason())
+                .profileApprovalStatus(user.getApprovalStatus().name())
+                .profileRejectionReason(user.getRejectionReason())
                 .documents(documents)
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())

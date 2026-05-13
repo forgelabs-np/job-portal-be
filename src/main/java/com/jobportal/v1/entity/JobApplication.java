@@ -28,7 +28,7 @@ public class JobApplication {
     private Candidate candidate;
 
     @ManyToOne
-    @JoinColumn(name = "agency_id", nullable = false)
+    @JoinColumn(name = "agency_id", nullable = true)
     private User agency;
 
     @Column(columnDefinition = "TEXT")

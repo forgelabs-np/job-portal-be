@@ -59,14 +59,8 @@ public class AgencyProfile {
     @Column(name = "contact_person_phone", length = 20)
     private String contactPersonPhone;
 
-    // Profile Completion Status (Original flow - basic info only)
     @Column(name = "profile_complete", nullable = false)
     private boolean profileComplete = false;
-
-    // Profile Approval Status (New flow - document approval)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "profile_approval_status")
-    private ApprovalStatus profileApprovalStatus = ApprovalStatus.PENDING;
 
     @Column(name = "profile_approved_at")
     private LocalDateTime profileApprovedAt;
@@ -91,22 +85,27 @@ public class AgencyProfile {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Helper methods
     public void approveProfile(Long adminId) {
-        this.profileApprovalStatus = ApprovalStatus.APPROVED;
         this.profileApprovedAt = LocalDateTime.now();
         this.profileApprovedBy = adminId;
         this.profileRejectionReason = null;
         this.profileComplete = true;
+
+        if (this.user != null) {
+            this.user.approve(adminId);
+        }
     }
 
     public void rejectProfile(String reason) {
-        this.profileApprovalStatus = ApprovalStatus.REJECTED;
         this.profileRejectionReason = reason;
         this.profileComplete = false;
+
+        if (this.user != null) {
+            this.user.reject(reason);
+        }
     }
 
     public boolean isProfileApproved() {
-        return ApprovalStatus.APPROVED.equals(this.profileApprovalStatus);
+        return this.user != null && this.user.isApproved();
     }
 }

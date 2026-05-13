@@ -1,13 +1,17 @@
 package com.jobportal.v1.service;
 
+import com.jobportal.v1.dto.candidate.request.CandidateSignupRequest;
 import com.jobportal.v1.dto.security.request.*;
 import com.jobportal.v1.dto.security.response.LoginResponse;
 import com.jobportal.v1.entity.User;
 
 public interface AuthService {
+
     LoginResponse authenticateAdmin(LoginRequest loginRequest);
 
     LoginResponse authenticateAgency(LoginRequest loginRequest);
+
+    LoginResponse authenticateCandidate(LoginRequest loginRequest);  // NEW
 
     void registerUser(SignupRequest signUpRequest);
 

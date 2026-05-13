@@ -169,4 +169,8 @@ public class User {
     public boolean isAgency() {
         return hasRole(RoleEnum.AGENCY);
     }
+
+    public boolean isCandidate() {
+        return hasRole(RoleEnum.CANDIDATE);
+    }
 }

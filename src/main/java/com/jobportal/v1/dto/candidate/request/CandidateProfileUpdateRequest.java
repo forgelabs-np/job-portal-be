@@ -4,14 +4,9 @@ import com.jobportal.v1.enums.MaritalStatus;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Data
-public class CandidateRequest {
-    private Long id;
-
-    private String firstName;
-    private String lastName;
+public class CandidateProfileUpdateRequest {
     private String trade;
     private LocalDate dateOfBirth;
     private MaritalStatus maritalStatus;
@@ -20,6 +15,4 @@ public class CandidateRequest {
     private LocalDate passportExpiryDate;
     private String documentsFolderLink;
     private String introVideoLink;
-
-    private List<DocumentRequest> documents;
 }

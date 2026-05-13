@@ -3,13 +3,10 @@ package com.jobportal.v1.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobportal.v1.dto.security.request.*;
 import com.jobportal.v1.dto.security.response.LoginResponse;
-import com.jobportal.v1.entity.EmailVerificationToken;
-import com.jobportal.v1.entity.RefreshToken;
-import com.jobportal.v1.entity.User;
-import com.jobportal.v1.enums.RoleEnum;
+import com.jobportal.v1.entity.*;
+import com.jobportal.v1.enums.*;
 import com.jobportal.v1.exception.*;
-import com.jobportal.v1.repository.EmailVerificationTokenRepository;
-import com.jobportal.v1.repository.UserRepository;
+import com.jobportal.v1.repository.*;
 import com.jobportal.v1.security.JwtUtils;
 import com.jobportal.v1.service.AuthService;
 import com.jobportal.v1.service.EmailService;
@@ -29,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +37,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
+    private final CandidateRepository candidateRepository;
+    private final CandidateStatusRepository candidateStatusRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
@@ -73,6 +74,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse authenticateAgency(LoginRequest loginRequest) {
         return authenticate(loginRequest, RoleEnum.AGENCY);
+    }
+
+    @Override
+    public LoginResponse authenticateCandidate(LoginRequest loginRequest) {
+        return authenticate(loginRequest, RoleEnum.CANDIDATE);
     }
 
     private LoginResponse authenticate(LoginRequest loginRequest, RoleEnum expectedRole) {
@@ -182,9 +188,44 @@ public class AuthServiceImpl implements AuthService {
             user.setEmail(signUpRequest.getEmail());
             user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
             user.setRoles(signUpRequest.getRoleEnums());
-            user.verifyEmail();
+            user.setEmailVerified(true);
+            user.setEmailVerifiedAt(LocalDateTime.now());
+            user.setActive(true);
+
+            // Set approval status based on role
+            if (user.isAdmin() || user.isCandidate()) {
+                user.setApprovalStatus(ApprovalStatus.APPROVED);
+            } else if (user.isAgency()) {
+                user.setApprovalStatus(ApprovalStatus.PENDING);
+            }
 
             User savedUser = userRepository.save(user);
+
+            // If user is a CANDIDATE, automatically create candidate profile
+            if (savedUser.isCandidate()) {
+                // Check if candidate profile already exists (for agency-created candidates)
+                boolean candidateExists = candidateRepository.existsByUserId(savedUser.getId());
+
+                if (!candidateExists) {
+                    Candidate candidate = new Candidate();
+                    candidate.setUser(savedUser);
+                    candidate.setAgency(null);
+                    candidate.setFirstName(getFirstNameFromFullName(signUpRequest.getFullName()));
+                    candidate.setLastName(getLastNameFromFullName(signUpRequest.getFullName()));
+                    candidate.setCandidateType(CandidateType.SELF_REGISTERED);
+                    candidate.setCreatedByType(CreatedByType.CANDIDATE);
+                    candidate.setCreatedBy(savedUser.getId());
+                    candidate.setIsEnabled(true);
+                    candidateRepository.save(candidate);
+
+                    // Create default status for candidate
+                    CandidateStatus status = new CandidateStatus();
+                    status.setCandidate(candidate);
+                    candidateStatusRepository.save(status);
+
+                    log.info("Candidate profile auto-created for user: {}", savedUser.getEmail());
+                }
+            }
 
             token.setUsed(true);
             token.setUpdatedAt(LocalDateTime.now());
@@ -317,5 +358,20 @@ public class AuthServiceImpl implements AuthService {
             return xForwardedFor.split(",")[0].trim();
         }
         return httpServletRequest.getRemoteAddr();
+    }
+
+    private String getFirstNameFromFullName(String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) return "";
+        String[] parts = fullName.trim().split(" ");
+        return parts[0];
+    }
+
+    private String getLastNameFromFullName(String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) return "";
+        String[] parts = fullName.trim().split(" ");
+        if (parts.length > 1) {
+            return String.join(" ", java.util.Arrays.copyOfRange(parts, 1, parts.length));
+        }
+        return "";
     }
 }

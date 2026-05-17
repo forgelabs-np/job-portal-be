@@ -26,43 +26,93 @@ public class FileUploadUtil {
     @Value("${file.upload.allowed-extensions:png,jpg,jpeg,pdf,doc,docx}")
     private String allowedExtensions;
 
+    // Agency Document Upload (for agency profile)
     public String uploadAgencyDocument(Long agencyId, String documentType, MultipartFile file) throws IOException {
-        // Validate file
         validateFile(file);
 
         String projectRoot = System.getProperty("user.dir");
-
-        // Create directory structure using baseDir from config
         Path uploadPath = Paths.get(projectRoot, baseDir, "agency_profiles", String.valueOf(agencyId));
 
-        // Create directories if they don't exist
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
             log.info("Created directory: {}", uploadPath);
         }
 
-        // Get file extension
         String originalFileName = file.getOriginalFilename();
         String fileExtension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
             fileExtension = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
         }
 
-        // Generate filename: {agencyId}_{DOCUMENT_TYPE}{extension}
         String fileName = agencyId + "_" + documentType + fileExtension;
-
-        // Save file
         Path filePath = uploadPath.resolve(fileName);
 
-        // Copy file (overwrite if exists)
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Agency document uploaded to: {}", filePath);
 
-        log.info("File uploaded to: {}", filePath);
-
-        // Return relative path for database storage
         return Paths.get(baseDir, "agency_profiles", String.valueOf(agencyId), fileName).toString();
     }
 
+    // Agency-Created Candidate Document Upload
+    // Add this method to your existing FileUploadUtil class
+    public String uploadAgencyCandidateDocument(Long candidateId, String documentType, MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String projectRoot = System.getProperty("user.dir");
+
+        // Folder structure: uploads/agency_candidates/{candidateId}/documents/
+        Path uploadPath = Paths.get(projectRoot, baseDir, "agency_candidates", String.valueOf(candidateId), "documents");
+
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+            log.info("Created directory: {}", uploadPath);
+        }
+
+        String originalFileName = file.getOriginalFilename();
+        String fileExtension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            fileExtension = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
+        }
+
+        // Generate filename: {candidateId}_{documentType}_{timestamp}{extension}
+        String fileName = candidateId + "_" + documentType + "_" + System.currentTimeMillis() + fileExtension;
+        Path filePath = uploadPath.resolve(fileName);
+
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Agency candidate document uploaded to: {}", filePath);
+
+        return Paths.get(baseDir, "agency_candidates", String.valueOf(candidateId), "documents", fileName).toString();
+    }
+
+    // Self-Registered Candidate Document Upload
+    public String uploadSelfCandidateDocument(Long candidateId, String documentType, MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String projectRoot = System.getProperty("user.dir");
+        Path uploadPath = Paths.get(projectRoot, baseDir, "self_candidates", String.valueOf(candidateId), "documents");
+
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+            log.info("Created directory: {}", uploadPath);
+        }
+
+        String originalFileName = file.getOriginalFilename();
+        String fileExtension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            fileExtension = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
+        }
+
+        // Generate filename: {candidateId}_{documentType}_{timestamp}{extension}
+        String fileName = candidateId + "_" + documentType + "_" + System.currentTimeMillis() + fileExtension;
+        Path filePath = uploadPath.resolve(fileName);
+
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Self candidate document uploaded to: {}", filePath);
+
+        return Paths.get(baseDir, "self_candidates", String.valueOf(candidateId), "documents", fileName).toString();
+    }
+
+    // Generic delete file method
     public boolean deleteFile(String filePath) {
         try {
             String projectRoot = System.getProperty("user.dir");
@@ -75,12 +125,10 @@ public class FileUploadUtil {
     }
 
     private void validateFile(MultipartFile file) {
-        // Validate file size
         if (file.getSize() > maxFileSize) {
             throw new RuntimeException("File size exceeds maximum allowed size of " + (maxFileSize / 1048576) + "MB");
         }
 
-        // Validate file extension
         String fileName = file.getOriginalFilename();
         if (fileName == null || !fileName.contains(".")) {
             throw new RuntimeException("Invalid file format. File must have an extension.");
@@ -93,4 +141,5 @@ public class FileUploadUtil {
             throw new RuntimeException("File type not allowed. Allowed types: " + allowedExtensions);
         }
     }
+
 }

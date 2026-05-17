@@ -41,7 +41,7 @@ public class CandidateResponse {
     private String introVideoLink;
     private Boolean isEnabled;
 
-    private List<DocumentResponse> documents;
+    private List<CandidateDocumentResponse> documents;
     private StatusResponse statuses;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

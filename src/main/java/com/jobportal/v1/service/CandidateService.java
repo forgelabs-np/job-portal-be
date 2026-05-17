@@ -3,12 +3,15 @@ package com.jobportal.v1.service;
 import com.jobportal.v1.dto.admin.request.CandidateStatusUpdateRequest;
 import com.jobportal.v1.dto.admin.response.AgencyCandidatesGroupResponse;
 import com.jobportal.v1.dto.candidate.request.CandidateRequest;
+import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 public interface CandidateService {
-
     CandidateResponse createOrUpdateCandidate(CandidateRequest request, Long agencyId);
 
     CandidateResponse getCandidateById(Long id, Long agencyId);
@@ -19,8 +22,14 @@ public interface CandidateService {
 
     void deleteCandidate(Long id, Long agencyId);
 
-    // Admin methods
     CandidateResponse updateCandidateStatus(Long candidateId, CandidateStatusUpdateRequest request, Long adminId);
 
-    Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable);  // Now returns Page
+    Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable);
+
+    // New document management methods for agency candidates
+    CandidateDocumentResponse uploadCandidateDocument(Long candidateId, Long agencyId, String documentType, MultipartFile file);
+
+    List<CandidateDocumentResponse> getCandidateDocuments(Long candidateId, Long agencyId);
+
+    void deleteCandidateDocument(Long candidateId, Long agencyId, Long documentId);
 }

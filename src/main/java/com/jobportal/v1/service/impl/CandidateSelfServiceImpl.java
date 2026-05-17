@@ -42,6 +42,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
     private final JobApplicationRepository jobApplicationRepository;
     private final FileUploadUtil fileUploadUtil;
 
+
     @Override
     @Transactional
     public CandidateResponse createOrUpdateProfile(Long userId, CandidateProfileRequest request) {
@@ -70,11 +71,15 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 candidate.setCreatedByType(CreatedByType.CANDIDATE);
                 candidate.setCreatedBy(userId);
                 candidate.setIsEnabled(true);
+
+                //Set profile complete for self-registered candidates
+                candidate.setProfileComplete(true);
+
                 log.info("Creating new candidate profile: {} by user: {}", request.getFirstName(), userId);
             }
         }
 
-        // Map fields (NO DOCUMENTS here anymore)
+        // Map fields
         if (request.getFirstName() != null) candidate.setFirstName(request.getFirstName());
         if (request.getLastName() != null) candidate.setLastName(request.getLastName());
         if (request.getTrade() != null) candidate.setTrade(request.getTrade());
@@ -292,6 +297,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .introVideoLink(entity.getIntroVideoLink())
                 .isEnabled(entity.getIsEnabled())
                 .documents(documents)
+                .isProfileComplete(entity.isProfileComplete())
                 .statuses(statuses)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

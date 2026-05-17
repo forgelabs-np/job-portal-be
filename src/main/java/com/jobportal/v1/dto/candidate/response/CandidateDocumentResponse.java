@@ -5,11 +5,13 @@ import lombok.Data;
 
 @Data
 @Builder
-public class DocumentResponse {
+public class CandidateDocumentResponse {
     private Long id;
     private String documentType;
     private String documentName;
-    private String documentLink;
+    private String documentPath;
     private String notes;
     private String uploadedAt;
+    private String status;
+    private String rejectionReason;
 }

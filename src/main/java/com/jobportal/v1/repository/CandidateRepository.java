@@ -15,7 +15,7 @@ import java.util.Optional;
 @Repository
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
-    // ===== AGENCY METHODS =====
+    // Agency methods
     Page<Candidate> findByAgencyId(Long agencyId, Pageable pageable);
 
     List<Candidate> findByAgencyId(Long agencyId);
@@ -26,7 +26,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
     Page<Candidate> findByAgencyIdAndIsEnabledTrue(Long agencyId, Pageable pageable);
 
-    // ===== SELF-REGISTERED CANDIDATE METHODS =====
+    // Self-registered candidate methods
     Optional<Candidate> findByUserId(Long userId);
 
     Optional<Candidate> findByIdAndUserId(Long id, Long userId);
@@ -35,7 +35,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
     boolean existsByUserId(Long userId);
 
-    // ===== ADMIN METHODS =====
+    // Admin methods
     @Query("SELECT c FROM Candidate c WHERE c.candidateType = :type AND c.agency.id = :agencyId")
     Page<Candidate> findByAgencyIdAndCandidateType(@Param("agencyId") Long agencyId, @Param("type") CandidateType type, Pageable pageable);
 }

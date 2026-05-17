@@ -12,6 +12,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -135,4 +137,44 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(ex.getMessage(), 403));
     }
+
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<String>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        String message = ex.getMessage();
+
+        if (message != null && message.contains("No enum constant")) {
+            // Extract the invalid value from message
+            String invalidValue = message.substring(message.lastIndexOf(".") + 1);
+            return ResponseEntity
+                    .badRequest()
+                    .body(ApiResponse.error(
+                            String.format("Invalid document type: '%s'. Please use a valid document type.", invalidValue),
+                            400));
+        }
+
+        log.warn("Illegal argument: {}", ex.getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error(ex.getMessage(), 400));
+    }
+
+    // Handle file size exceeded
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<String>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+        log.warn("File size exceeded: {}", ex.getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("File size exceeds maximum allowed size of 5MB", 400));
+    }
+
+    // Handle multipart file errors
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<String>> handleMultipartException(MultipartException ex) {
+        log.warn("Multipart error: {}", ex.getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("Invalid file upload request. Please check your file.", 400));
+    }
+
 }

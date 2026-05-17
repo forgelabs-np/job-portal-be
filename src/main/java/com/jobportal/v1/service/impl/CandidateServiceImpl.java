@@ -4,23 +4,30 @@ import com.jobportal.v1.dto.admin.request.CandidateStatusUpdateRequest;
 import com.jobportal.v1.dto.admin.response.AgencyCandidatesGroupResponse;
 import com.jobportal.v1.dto.admin.response.CandidateInfo;
 import com.jobportal.v1.dto.candidate.request.CandidateRequest;
+import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
-import com.jobportal.v1.dto.candidate.response.DocumentResponse;
 import com.jobportal.v1.dto.candidate.response.StatusResponse;
 import com.jobportal.v1.entity.*;
+import com.jobportal.v1.enums.CandidateType;
+import com.jobportal.v1.enums.CreatedByType;
 import com.jobportal.v1.enums.DocumentType;
 import com.jobportal.v1.enums.RoleEnum;
+import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.CandidateService;
+import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +44,7 @@ public class CandidateServiceImpl implements CandidateService {
     private final CandidateDocumentRepository documentRepository;
     private final CandidateStatusRepository statusRepository;
     private final UserRepository userRepository;
+    private final FileUploadUtil fileUploadUtil;
 
     @Override
     @Transactional
@@ -56,6 +64,8 @@ public class CandidateServiceImpl implements CandidateService {
             candidate = new Candidate();
             candidate.setAgency(agency);
             candidate.setCreatedBy(agencyId);
+            candidate.setCreatedByType(CreatedByType.AGENCY);
+            candidate.setCandidateType(CandidateType.AGENCY_MANAGED);
             candidate.setIsEnabled(true);
             log.info("Creating new candidate: {} {} by agency: {}", request.getFirstName(), request.getLastName(), agencyId);
         }
@@ -69,24 +79,125 @@ public class CandidateServiceImpl implements CandidateService {
             statusRepository.save(status);
         }
 
-        // Handle documents - delete old and add new
-        documentRepository.deleteByCandidateId(saved.getId());
+
         if (request.getDocuments() != null && !request.getDocuments().isEmpty()) {
             for (var docReq : request.getDocuments()) {
-                CandidateDocument doc = new CandidateDocument();
-                doc.setCandidate(saved);
-                doc.setDocumentType(DocumentType.valueOf(docReq.getDocumentType()));
-                doc.setDocumentName(docReq.getDocumentName());
-                doc.setDocumentLink(docReq.getDocumentLink());
-                doc.setNotes(docReq.getNotes());
-                documentRepository.save(doc);
+                boolean exists = documentRepository.existsByCandidateIdAndDocumentType(
+                        saved.getId(), DocumentType.valueOf(docReq.getDocumentType()));
+
+                if (!exists) {
+                    CandidateDocument doc = new CandidateDocument();
+                    doc.setCandidate(saved);
+                    doc.setDocumentType(DocumentType.valueOf(docReq.getDocumentType()));
+                    doc.setDocumentName(docReq.getDocumentName());
+                    doc.setNotes(docReq.getNotes());
+                    documentRepository.save(doc);
+                }
             }
         }
 
-        String message = isUpdate ? "Candidate updated successfully" : "Candidate created successfully";
         log.info("Candidate {}: {} {}", isUpdate ? "updated" : "created", request.getFirstName(), request.getLastName());
 
         return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CandidateDocumentResponse uploadCandidateDocument(Long candidateId, Long agencyId, String documentType, MultipartFile file) {
+        // Verify candidate belongs to this agency
+        Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId));
+
+        if (file.isEmpty()) {
+            throw new BadRequestException("File is empty");
+        }
+
+        // Validate document type against enum
+        DocumentType validatedDocType;
+        try {
+            validatedDocType = DocumentType.valueOf(documentType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            String allowedTypes = String.join(", ",
+                    java.util.Arrays.stream(DocumentType.values())
+                            .map(Enum::name)
+                            .toArray(String[]::new));
+            throw new BadRequestException("Invalid document type: " + documentType +
+                    ". Allowed types: " + allowedTypes);
+        }
+
+        try {
+            // Check if document with this type already exists
+            java.util.Optional<CandidateDocument> existingDoc = documentRepository
+                    .findByCandidateIdAndDocumentType(candidate.getId(), validatedDocType);
+
+            String filePath;
+            CandidateDocument document;
+
+            if (existingDoc.isPresent()) {
+                document = existingDoc.get();
+                // Delete old file if it exists
+                if (document.getDocumentPath() != null) {
+                    fileUploadUtil.deleteFile(document.getDocumentPath());
+                }
+                // Upload new file
+                filePath = fileUploadUtil.uploadAgencyCandidateDocument(candidate.getId(), documentType, file);
+
+                document.setDocumentName(file.getOriginalFilename());
+                document.setDocumentPath(filePath);
+                document.setNotes(null); // Clear any old notes
+                document.setUploadedAt(java.time.LocalDateTime.now());
+
+                log.info("Document re-uploaded for agency candidate: {}, type: {}", candidateId, documentType);
+            } else {
+                filePath = fileUploadUtil.uploadAgencyCandidateDocument(candidate.getId(), documentType, file);
+
+                document = new CandidateDocument();
+                document.setCandidate(candidate);
+                document.setDocumentType(validatedDocType);
+                document.setDocumentName(file.getOriginalFilename());
+                document.setDocumentPath(filePath);
+                document.setUploadedAt(java.time.LocalDateTime.now());
+
+                log.info("New document uploaded for agency candidate: {}, type: {}", candidateId, documentType);
+            }
+
+            CandidateDocument saved = documentRepository.save(document);
+            return toDocumentResponse(saved);
+
+        } catch (IOException e) {
+            log.error("Failed to upload document for candidate: {}", candidateId, e);
+            throw new RuntimeException("Failed to upload document: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public List<CandidateDocumentResponse> getCandidateDocuments(Long candidateId, Long agencyId) {
+        // Verify candidate belongs to this agency
+        Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+
+        return documentRepository.findByCandidateId(candidate.getId()).stream()
+                .map(this::toDocumentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteCandidateDocument(Long candidateId, Long agencyId, Long documentId) {
+        // Verify candidate belongs to this agency
+        Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+
+        CandidateDocument document = documentRepository.findByIdAndCandidateId(documentId, candidate.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+
+        // Delete physical file if it exists
+        if (document.getDocumentPath() != null) {
+            fileUploadUtil.deleteFile(document.getDocumentPath());
+        }
+
+        documentRepository.delete(document);
+        log.info("Document deleted for agency candidate: {}, documentId: {}", candidateId, documentId);
     }
 
     @Override
@@ -131,6 +242,13 @@ public class CandidateServiceImpl implements CandidateService {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(id, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
+        List<CandidateDocument> documents = documentRepository.findByCandidateId(id);
+        for (CandidateDocument doc : documents) {
+            if (doc.getDocumentPath() != null) {
+                fileUploadUtil.deleteFile(doc.getDocumentPath());
+            }
+        }
+
         documentRepository.deleteByCandidateId(id);
         statusRepository.findByCandidateId(id).ifPresent(statusRepository::delete);
         candidateRepository.delete(candidate);
@@ -168,7 +286,6 @@ public class CandidateServiceImpl implements CandidateService {
 
     @Override
     public Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable) {
-        // Get paginated agencies
         Page<User> agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY, pageable);
 
         List<AgencyCandidatesGroupResponse> responseList = new ArrayList<>();
@@ -233,15 +350,8 @@ public class CandidateServiceImpl implements CandidateService {
             isPassportValid = entity.getPassportExpiryDate().isAfter(LocalDate.now());
         }
 
-        List<DocumentResponse> documents = documentRepository.findByCandidateId(entity.getId()).stream()
-                .map(doc -> DocumentResponse.builder()
-                        .id(doc.getId())
-                        .documentType(doc.getDocumentType().name())
-                        .documentName(doc.getDocumentName())
-                        .documentLink(doc.getDocumentLink())
-                        .notes(doc.getNotes())
-                        .uploadedAt(doc.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                        .build())
+        List<CandidateDocumentResponse> documents = documentRepository.findByCandidateId(entity.getId()).stream()
+                .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
 
         StatusResponse statuses = statusRepository.findByCandidateId(entity.getId())
@@ -257,6 +367,9 @@ public class CandidateServiceImpl implements CandidateService {
                 .id(entity.getId())
                 .agencyId(entity.getAgency().getId())
                 .agencyName(entity.getAgency().getFullName())
+                .userId(entity.getUser() != null ? entity.getUser().getId() : null)
+                .candidateType(entity.getCandidateType() != null ? entity.getCandidateType().name() : null)
+                .createdByType(entity.getCreatedByType() != null ? entity.getCreatedByType().name() : null)
                 .firstName(entity.getFirstName())
                 .lastName(entity.getLastName())
                 .fullName(entity.getFirstName() + " " + entity.getLastName())
@@ -275,6 +388,20 @@ public class CandidateServiceImpl implements CandidateService {
                 .statuses(statuses)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private CandidateDocumentResponse toDocumentResponse(CandidateDocument document) {
+        return CandidateDocumentResponse.builder()
+                .id(document.getId())
+                .documentType(document.getDocumentType().name())
+                .documentName(document.getDocumentName())
+                .documentPath(document.getDocumentPath())
+                .notes(document.getNotes())
+                .uploadedAt(document.getUploadedAt() != null ?
+                        document.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .status(document.getStatus() != null ? document.getStatus().name() : "PENDING")
+                .rejectionReason(document.getRejectionReason())
                 .build();
     }
 }

@@ -80,6 +80,9 @@ public class Candidate {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "profile_complete")
+    private Boolean profileComplete = false;
+
     public String getFullName() {
         return firstName + " " + lastName;
     }
@@ -94,5 +97,9 @@ public class Candidate {
 
     public boolean hasLoginAccess() {
         return user != null;
+    }
+
+    public boolean isProfileComplete() {
+        return profileComplete != null && profileComplete;
     }
 }

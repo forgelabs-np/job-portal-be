@@ -27,6 +27,8 @@ public interface CandidateSelfService {
     // Job applications
     Page<JobApplicationResponse> getMyApplications(Long userId, Pageable pageable);
 
+    JobApplicationResponse getMyApplicationById(Long userId, Long applicationId);
+
     JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes);
 
     JobApplicationResponse withdrawApplication(Long userId, Long applicationId);

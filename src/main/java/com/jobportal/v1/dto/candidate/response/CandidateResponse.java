@@ -41,6 +41,7 @@ public class CandidateResponse {
     private String introVideoLink;
     private Boolean isEnabled;
     private Boolean profileComplete;
+    private String onboardingStage;
 
     private List<CandidateDocumentResponse> documents;
     private StatusResponse statuses;

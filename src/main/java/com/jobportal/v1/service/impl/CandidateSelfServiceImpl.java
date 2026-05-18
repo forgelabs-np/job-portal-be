@@ -89,6 +89,11 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
         Candidate saved = candidateRepository.save(candidate);
 
         saved.setProfileComplete(saved.calculateProfileComplete());
+        if (saved.isProfileComplete()
+                && saved.getOnboardingStage() == OnboardingStage.PROFILE) {
+            saved.setOnboardingStage(OnboardingStage.DOCUMENTS);
+            log.info("Candidate onboarding stage advanced to DOCUMENTS for user: {}", userId);
+        }
         candidateRepository.save(saved);
 
         log.info("Candidate profile {} for user: {}", isUpdate ? "updated" : "created", userId);
@@ -156,6 +161,12 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
             }
 
             CandidateDocument saved = documentRepository.save(document);
+            if (validatedDocType == DocumentType.PASSPORT
+                    && candidate.getOnboardingStage() == OnboardingStage.DOCUMENTS) {
+                candidate.setOnboardingStage(OnboardingStage.COMPLETE);
+                candidateRepository.save(candidate);
+                log.info("Candidate onboarding stage advanced to COMPLETE for user: {}", userId);
+            }
             return toDocumentResponse(saved);
 
         } catch (IOException e) {
@@ -196,6 +207,22 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
 
         return jobApplicationRepository.findByCandidateId(candidate.getId(), pageable)
                 .map(this::mapToApplicationResponse);
+    }
+
+    @Override
+    public JobApplicationResponse getMyApplicationById(Long userId, Long applicationId) {
+        Candidate candidate = candidateRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
+
+        if (!candidate.isSelfRegistered()) {
+            throw new BadRequestException("Agency-managed candidates must use agency endpoints.");
+        }
+
+        JobApplication application = jobApplicationRepository
+                .findByIdAndCandidateId(applicationId, candidate.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with id: " + applicationId));
+
+        return mapToApplicationResponse(application);
     }
 
     @Override
@@ -342,6 +369,8 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .statuses(null)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .onboardingStage(entity.getOnboardingStage() != null
+                        ? entity.getOnboardingStage().name() : null)
                 .build();
     }
 

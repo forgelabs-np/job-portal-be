@@ -261,9 +261,9 @@ public class JobApplicationServiceImpl implements JobApplicationService {
                 .jobCountry(entity.getJobDemand().getCountry() != null ?
                         entity.getJobDemand().getCountry().getName() : null)
                 .jobCity(entity.getJobDemand().getCity())
-                .agencyId(entity.getAgency().getId())
-                .agencyName(entity.getAgency().getFullName())
-                .agencyEmail(entity.getAgency().getEmail())
+                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
+                .agencyName(entity.getAgency() != null ? entity.getAgency().getFullName() : null)
+                .agencyEmail(entity.getAgency() != null ? entity.getAgency().getEmail() : null)
                 .candidateId(entity.getCandidate().getId())
                 .candidateName(entity.getCandidate().getFirstName() + entity.getCandidate().getLastName())
                 .candidateTrade(entity.getCandidate().getTrade())

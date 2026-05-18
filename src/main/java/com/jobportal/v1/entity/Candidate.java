@@ -3,6 +3,7 @@ package com.jobportal.v1.entity;
 import com.jobportal.v1.enums.CandidateType;
 import com.jobportal.v1.enums.CreatedByType;
 import com.jobportal.v1.enums.MaritalStatus;
+import com.jobportal.v1.enums.OnboardingStage;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -67,6 +68,10 @@ public class Candidate {
     @Enumerated(EnumType.STRING)
     @Column(name = "candidate_type", nullable = false)
     private CandidateType candidateType = CandidateType.AGENCY_MANAGED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "onboarding_stage")
+    private OnboardingStage onboardingStage = OnboardingStage.PROFILE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "created_by_type", nullable = false)
@@ -146,6 +151,9 @@ public class Candidate {
         return true;
     }
 
+    public boolean isOnboardingComplete() {
+        return onboardingStage == OnboardingStage.COMPLETE;
+    }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();

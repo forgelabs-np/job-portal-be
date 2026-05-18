@@ -53,4 +53,25 @@ public class AdminCandidateController {
         CandidateResponse response = candidateService.updateCandidateStatus(candidateId, request.getData(), admin.getId());
         return ResponseEntity.ok(ApiResponse.success("Candidate status updated successfully", response));
     }
+
+    @Operation(summary = "Get Self-Registered Candidates", description = "Get all self-registered candidates with pagination")
+    @GetMapping("/self-registered")
+    public ResponseEntity<ApiResponse<PageRes<CandidateResponse>>> getSelfRegisteredCandidates(
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        Page<CandidateResponse> response = candidateService.getSelfRegisteredCandidates(pageable);
+        PageRes<CandidateResponse> pageRes = Pages.of(response);
+
+        return ResponseEntity.ok(ApiResponse.success("Self-registered candidates retrieved", pageRes));
+    }
+
+    @Operation(summary = "Toggle Candidate Status (Admin)", description = "Admin enables or disables any candidate")
+    @PatchMapping("/{candidateId}/toggle-status")
+    public ResponseEntity<ApiResponse<CandidateResponse>> adminToggleCandidateStatus(
+            @PathVariable Long candidateId) {
+
+        CandidateResponse response = candidateService.adminToggleCandidateStatus(candidateId);
+        String message = response.getIsEnabled() ? "Candidate enabled successfully" : "Candidate disabled successfully";
+        return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
 }

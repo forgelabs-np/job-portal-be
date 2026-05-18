@@ -12,18 +12,24 @@ import java.util.List;
 
 public interface CandidateSelfService {
 
+    // Profile management
     CandidateResponse createOrUpdateProfile(Long userId, CandidateProfileRequest request);
 
     CandidateResponse getMyProfile(Long userId);
 
-    Page<JobApplicationResponse> getMyApplications(Long userId, Pageable pageable);
-
-    JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes);
-
-    // Document Management
+    // Document management
     CandidateDocumentResponse uploadDocument(Long userId, String documentType, MultipartFile file);
 
     List<CandidateDocumentResponse> getMyDocuments(Long userId);
 
     void deleteDocument(Long userId, Long documentId);
+
+    // Job applications
+    Page<JobApplicationResponse> getMyApplications(Long userId, Pageable pageable);
+
+    JobApplicationResponse getMyApplicationById(Long userId, Long applicationId);
+
+    JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes);
+
+    JobApplicationResponse withdrawApplication(Long userId, Long applicationId);
 }

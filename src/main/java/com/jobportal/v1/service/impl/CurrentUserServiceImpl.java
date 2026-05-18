@@ -51,6 +51,8 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                             .role("ADMIN")
                             .permissions("FULL_ACCESS")
                             .build())
+                    .isProfileComplete(true)
+                    .onboardingStage("COMPLETED")  // Admin is always onboarded
                     .build();
         }
 
@@ -85,7 +87,8 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                         .isProfileComplete(agencyProfile.isProfileComplete())
                         .profileApprovalStatus(user.getApprovalStatus().name())
                         .profileRejectionReason(agencyProfile.getProfileRejectionReason())
-                        .documents(documents);
+                        .documents(documents)
+                        .onboardingStage(agencyProfile.isProfileComplete() ? "COMPLETED" : "PROFILE");
             }
 
             return responseBuilder.build();
@@ -95,21 +98,37 @@ public class CurrentUserServiceImpl implements CurrentUserService {
             Candidate candidate = candidateRepository.findByUserId(userId)
                     .orElse(null);
 
-            if (candidate != null) {
-                // Calculate age
-                Integer age = null;
-                if (candidate.getDateOfBirth() != null) {
-                    age = Period.between(candidate.getDateOfBirth(), LocalDate.now()).getYears();
-                }
+            // ✅ ISSUE 4 FIX: No profile created yet — tell frontend to show profile creation
+            if (candidate == null) {
+                return responseBuilder
+                        .isProfileComplete(false)
+                        .onboardingStage("PROFILE")  // Frontend knows to show profile form
+                        .build();
+            }
 
-                // Check passport validity
-                Boolean isPassportValid = null;
-                if (candidate.getPassportExpiryDate() != null) {
-                    isPassportValid = candidate.getPassportExpiryDate().isAfter(LocalDate.now());
-                }
+            // ✅ Calculate profile completeness dynamically
+            boolean profileComplete = candidate.calculateProfileComplete();
+            if (candidate.isProfileComplete() != profileComplete) {
+                candidate.setProfileComplete(profileComplete);
+                candidateRepository.save(candidate);
+            }
 
-                // Get statuses
-                StatusResponse statuses = candidateStatusRepository.findByCandidateId(candidate.getId())
+            // Calculate age
+            Integer age = null;
+            if (candidate.getDateOfBirth() != null) {
+                age = Period.between(candidate.getDateOfBirth(), LocalDate.now()).getYears();
+            }
+
+            // Check passport validity
+            Boolean isPassportValid = null;
+            if (candidate.getPassportExpiryDate() != null) {
+                isPassportValid = candidate.getPassportExpiryDate().isAfter(LocalDate.now());
+            }
+
+            // Get statuses (only for agency-managed candidates)
+            StatusResponse statuses = null;
+            if (candidate.isAgencyManaged()) {
+                statuses = candidateStatusRepository.findByCandidateId(candidate.getId())
                         .map(status -> StatusResponse.builder()
                                 .pccStatus(status.getPccStatus().name())
                                 .slcStatus(status.getSlcStatus().name())
@@ -117,33 +136,39 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                                 .visaStatus(status.getVisaStatus().name())
                                 .build())
                         .orElse(null);
-
-                responseBuilder
-                        .candidateProfile(CurrentUserResponse.CandidateProfileResponse.builder()
-                                .candidateId(candidate.getId())
-                                .firstName(candidate.getFirstName())
-                                .lastName(candidate.getLastName())
-                                .fullName(candidate.getFullName())
-                                .trade(candidate.getTrade())
-                                .dateOfBirth(candidate.getDateOfBirth() != null ?
-                                        candidate.getDateOfBirth().toString() : null)
-                                .age(age)
-                                .maritalStatus(candidate.getMaritalStatus() != null ?
-                                        candidate.getMaritalStatus().name() : null)
-                                .passportNumber(candidate.getPassportNumber())
-                                .passportIssueDate(candidate.getPassportIssueDate() != null ?
-                                        candidate.getPassportIssueDate().toString() : null)
-                                .passportExpiryDate(candidate.getPassportExpiryDate() != null ?
-                                        candidate.getPassportExpiryDate().toString() : null)
-                                .isPassportValid(isPassportValid)
-                                .documentsFolderLink(candidate.getDocumentsFolderLink())
-                                .introVideoLink(candidate.getIntroVideoLink())
-                                .isEnabled(candidate.getIsEnabled())
-                                .candidateType(candidate.getCandidateType().name())
-                                .createdByType(candidate.getCreatedByType().name())
-                                .statuses(statuses)
-                                .build());
             }
+
+            String onboardingStageStr = candidate.getOnboardingStage() != null
+                    ? candidate.getOnboardingStage().name() : null;
+
+            responseBuilder
+                    .candidateProfile(CurrentUserResponse.CandidateProfileResponse.builder()
+                            .candidateId(candidate.getId())
+                            .firstName(candidate.getFirstName())
+                            .lastName(candidate.getLastName())
+                            .fullName(candidate.getFullName())
+                            .trade(candidate.getTrade())
+                            .dateOfBirth(candidate.getDateOfBirth() != null ?
+                                    candidate.getDateOfBirth().toString() : null)
+                            .age(age)
+                            .maritalStatus(candidate.getMaritalStatus() != null ?
+                                    candidate.getMaritalStatus().name() : null)
+                            .passportNumber(candidate.getPassportNumber())
+                            .passportIssueDate(candidate.getPassportIssueDate() != null ?
+                                    candidate.getPassportIssueDate().toString() : null)
+                            .passportExpiryDate(candidate.getPassportExpiryDate() != null ?
+                                    candidate.getPassportExpiryDate().toString() : null)
+                            .isPassportValid(isPassportValid)
+                            .documentsFolderLink(candidate.getDocumentsFolderLink())
+                            .introVideoLink(candidate.getIntroVideoLink())
+                            .isEnabled(candidate.getIsEnabled())
+                            .onboardingStage(onboardingStageStr)  // Inside nested profile
+                            .candidateType(candidate.getCandidateType().name())
+                            .createdByType(candidate.getCreatedByType().name())
+                            .statuses(statuses)
+                            .build())
+                    .isProfileComplete(profileComplete)
+                    .onboardingStage(onboardingStageStr);
 
             return responseBuilder.build();
         }

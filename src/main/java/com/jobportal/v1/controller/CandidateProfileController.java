@@ -98,6 +98,16 @@ public class CandidateProfileController {
         return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
     }
 
+    @Operation(summary = "Get Application by ID", description = "Get a specific job application by ID")
+    @GetMapping("/applications/{applicationId}")
+    public ResponseEntity<ApiResponse<JobApplicationResponse>> getMyApplicationById(
+            @PathVariable Long applicationId,
+            @CurrentUser UserPrincipal candidate) {
+
+        JobApplicationResponse response = candidateSelfService.getMyApplicationById(candidate.getId(), applicationId);
+        return ResponseEntity.ok(ApiResponse.success("Application retrieved", response));
+    }
+
     @Operation(summary = "Apply for Job", description = "Submit application for a job")
     @PostMapping("/jobs/{jobDemandId}/apply")
     public ResponseEntity<ApiResponse<JobApplicationResponse>> applyForJob(
@@ -107,5 +117,15 @@ public class CandidateProfileController {
 
         JobApplicationResponse response = candidateSelfService.applyForJob(candidate.getId(), jobDemandId, notes);
         return ResponseEntity.ok(ApiResponse.success("Application submitted successfully", response));
+    }
+
+    @Operation(summary = "Withdraw Application", description = "Withdraw a submitted job application")
+    @PatchMapping("/applications/{applicationId}/withdraw")
+    public ResponseEntity<ApiResponse<JobApplicationResponse>> withdrawApplication(
+            @PathVariable Long applicationId,
+            @CurrentUser UserPrincipal candidate) {
+
+        JobApplicationResponse response = candidateSelfService.withdrawApplication(candidate.getId(), applicationId);
+        return ResponseEntity.ok(ApiResponse.success("Application withdrawn successfully", response));
     }
 }

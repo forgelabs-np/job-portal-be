@@ -3,6 +3,7 @@ package com.jobportal.v1.entity;
 import com.jobportal.v1.enums.CandidateType;
 import com.jobportal.v1.enums.CreatedByType;
 import com.jobportal.v1.enums.MaritalStatus;
+import com.jobportal.v1.enums.OnboardingStage;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -69,8 +70,15 @@ public class Candidate {
     private CandidateType candidateType = CandidateType.AGENCY_MANAGED;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "onboarding_stage")
+    private OnboardingStage onboardingStage = OnboardingStage.PROFILE;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "created_by_type", nullable = false)
     private CreatedByType createdByType = CreatedByType.AGENCY;
+
+    @Column(name = "profile_complete")
+    private Boolean profileComplete = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -79,9 +87,6 @@ public class Candidate {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @Column(name = "profile_complete")
-    private Boolean profileComplete = false;
 
     public String getFullName() {
         return firstName + " " + lastName;
@@ -99,7 +104,58 @@ public class Candidate {
         return user != null;
     }
 
+    /**
+     * Checks if profileComplete flag is set.
+     * Used in response mapping — reflects the stored value.
+     * Do NOT use this to calculate completeness; use calculateProfileComplete() for that.
+     */
     public boolean isProfileComplete() {
         return profileComplete != null && profileComplete;
+    }
+
+    /**
+     * Calculates whether the candidate profile meets the minimum required fields.
+     *
+     * Rules by candidate type:
+     *
+     * SELF_REGISTERED — stricter, because the candidate manages their own data:
+     *   Required: firstName, lastName, trade, dateOfBirth, maritalStatus,
+     *             passportNumber, passportIssueDate, passportExpiryDate
+     *
+     * AGENCY_MANAGED — looser, because agencies may add data incrementally:
+     *   Required: firstName, lastName only
+     *   (agency is responsible for completing the rest over time)
+     *
+     * Call this method after saving the candidate, then persist the result
+     * back to profileComplete. Do not hardcode true/false on creation.
+     */
+    public boolean calculateProfileComplete() {
+        // First name and last name are always required for both types
+        if (isBlank(firstName) || isBlank(lastName)) {
+            return false;
+        }
+
+        if (isSelfRegistered()) {
+            // Self-registered candidates must fill all core fields
+            // before their profile is considered complete
+            return !isBlank(trade)
+                    && dateOfBirth != null
+                    && maritalStatus != null
+                    && !isBlank(passportNumber)
+                    && passportIssueDate != null
+                    && passportExpiryDate != null;
+        }
+
+        // AGENCY_MANAGED: name is enough to consider profile created
+        // Agency fills the rest progressively
+        return true;
+    }
+
+    public boolean isOnboardingComplete() {
+        return onboardingStage == OnboardingStage.COMPLETE;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

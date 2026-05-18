@@ -19,7 +19,6 @@ import com.jobportal.v1.service.CandidateService;
 import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -73,12 +72,16 @@ public class CandidateServiceImpl implements CandidateService {
         mapRequestToEntity(request, candidate);
         Candidate saved = candidateRepository.save(candidate);
 
-        if (!isUpdate) {
+        // Recalculate profileComplete based on rules
+        saved.setProfileComplete(saved.calculateProfileComplete());
+        candidateRepository.save(saved);
+
+        // Create status only for agency-managed candidates
+        if (!isUpdate && saved.isAgencyManaged()) {
             CandidateStatus status = new CandidateStatus();
             status.setCandidate(saved);
             statusRepository.save(status);
         }
-
 
         if (request.getDocuments() != null && !request.getDocuments().isEmpty()) {
             for (var docReq : request.getDocuments()) {
@@ -104,7 +107,6 @@ public class CandidateServiceImpl implements CandidateService {
     @Override
     @Transactional
     public CandidateDocumentResponse uploadCandidateDocument(Long candidateId, Long agencyId, String documentType, MultipartFile file) {
-        // Verify candidate belongs to this agency
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId));
 
@@ -112,7 +114,6 @@ public class CandidateServiceImpl implements CandidateService {
             throw new BadRequestException("File is empty");
         }
 
-        // Validate document type against enum
         DocumentType validatedDocType;
         try {
             validatedDocType = DocumentType.valueOf(documentType.toUpperCase());
@@ -126,7 +127,6 @@ public class CandidateServiceImpl implements CandidateService {
         }
 
         try {
-            // Check if document with this type already exists
             java.util.Optional<CandidateDocument> existingDoc = documentRepository
                     .findByCandidateIdAndDocumentType(candidate.getId(), validatedDocType);
 
@@ -135,16 +135,14 @@ public class CandidateServiceImpl implements CandidateService {
 
             if (existingDoc.isPresent()) {
                 document = existingDoc.get();
-                // Delete old file if it exists
                 if (document.getDocumentPath() != null) {
                     fileUploadUtil.deleteFile(document.getDocumentPath());
                 }
-                // Upload new file
                 filePath = fileUploadUtil.uploadAgencyCandidateDocument(candidate.getId(), documentType, file);
 
                 document.setDocumentName(file.getOriginalFilename());
                 document.setDocumentPath(filePath);
-                document.setNotes(null); // Clear any old notes
+                document.setNotes(null);
                 document.setUploadedAt(java.time.LocalDateTime.now());
 
                 log.info("Document re-uploaded for agency candidate: {}, type: {}", candidateId, documentType);
@@ -172,7 +170,6 @@ public class CandidateServiceImpl implements CandidateService {
 
     @Override
     public List<CandidateDocumentResponse> getCandidateDocuments(Long candidateId, Long agencyId) {
-        // Verify candidate belongs to this agency
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
@@ -184,14 +181,12 @@ public class CandidateServiceImpl implements CandidateService {
     @Override
     @Transactional
     public void deleteCandidateDocument(Long candidateId, Long agencyId, Long documentId) {
-        // Verify candidate belongs to this agency
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
         CandidateDocument document = documentRepository.findByIdAndCandidateId(documentId, candidate.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
 
-        // Delete physical file if it exists
         if (document.getDocumentPath() != null) {
             fileUploadUtil.deleteFile(document.getDocumentPath());
         }
@@ -307,8 +302,8 @@ public class CandidateServiceImpl implements CandidateService {
                                     .isEnabled(candidate.getIsEnabled())
                                     .pccStatus(status != null ? status.getPccStatus().name() : "PENDING")
                                     .slcStatus(status != null ? status.getSlcStatus().name() : "PENDING")
-                                    .workPermitStatus(status != null ? status.getWorkPermitStatus().name() : "NOT_STARTED")
-                                    .visaStatus(status != null ? status.getVisaStatus().name() : "NOT_STARTED")
+                                    .workPermitStatus(status != null ? status.getWorkPermitStatus().name() : "PENDING")
+                                    .visaStatus(status != null ? status.getVisaStatus().name() : "PENDING")
                                     .createdAt(candidate.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                                     .build();
                         })
@@ -324,6 +319,24 @@ public class CandidateServiceImpl implements CandidateService {
         }
 
         return new PageImpl<>(responseList, pageable, agencies.getTotalElements());
+    }
+
+    @Override
+    @Transactional
+    public CandidateResponse adminToggleCandidateStatus(Long candidateId) {
+        Candidate candidate = candidateRepository.findById(candidateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+        candidate.setIsEnabled(!candidate.getIsEnabled());
+        Candidate saved = candidateRepository.save(candidate);
+        log.info("Admin toggled candidate status for: {}, new status: {}",
+                candidate.getFullName(), saved.getIsEnabled());
+        return mapToResponse(saved);
+    }
+
+    @Override
+    public Page<CandidateResponse> getSelfRegisteredCandidates(Pageable pageable) {
+        return candidateRepository.findByCandidateType(CandidateType.SELF_REGISTERED, pageable)
+                .map(this::mapToResponse);
     }
 
     private void mapRequestToEntity(CandidateRequest request, Candidate entity) {
@@ -354,25 +367,29 @@ public class CandidateServiceImpl implements CandidateService {
                 .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
 
-        StatusResponse statuses = statusRepository.findByCandidateId(entity.getId())
-                .map(status -> StatusResponse.builder()
-                        .pccStatus(status.getPccStatus().name())
-                        .slcStatus(status.getSlcStatus().name())
-                        .workPermitStatus(status.getWorkPermitStatus().name())
-                        .visaStatus(status.getVisaStatus().name())
-                        .build())
-                .orElse(null);
+        StatusResponse statuses = null;
+        if (entity.isAgencyManaged()) {
+            statuses = statusRepository.findByCandidateId(entity.getId())
+                    .map(status -> StatusResponse.builder()
+                            .pccStatus(status.getPccStatus().name())
+                            .slcStatus(status.getSlcStatus().name())
+                            .workPermitStatus(status.getWorkPermitStatus().name())
+                            .visaStatus(status.getVisaStatus().name())
+                            .build())
+                    .orElse(null);
+        }
 
         return CandidateResponse.builder()
                 .id(entity.getId())
-                .agencyId(entity.getAgency().getId())
-                .agencyName(entity.getAgency().getFullName())
+                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
+                .agencyName(entity.getAgency() != null ? entity.getAgency().getFullName() : null)
                 .userId(entity.getUser() != null ? entity.getUser().getId() : null)
-                .candidateType(entity.getCandidateType() != null ? entity.getCandidateType().name() : null)
-                .createdByType(entity.getCreatedByType() != null ? entity.getCreatedByType().name() : null)
+                .userEmail(entity.getUser() != null ? entity.getUser().getEmail() : null)
+                .candidateType(entity.getCandidateType().name())
+                .createdByType(entity.getCreatedByType().name())
                 .firstName(entity.getFirstName())
                 .lastName(entity.getLastName())
-                .fullName(entity.getFirstName() + " " + entity.getLastName())
+                .fullName(entity.getFullName())
                 .trade(entity.getTrade())
                 .dateOfBirth(entity.getDateOfBirth())
                 .age(age)
@@ -385,6 +402,7 @@ public class CandidateServiceImpl implements CandidateService {
                 .introVideoLink(entity.getIntroVideoLink())
                 .isEnabled(entity.getIsEnabled())
                 .documents(documents)
+                .profileComplete(entity.isProfileComplete())
                 .statuses(statuses)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

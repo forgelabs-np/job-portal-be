@@ -40,7 +40,8 @@ public class CandidateResponse {
     private String documentsFolderLink;
     private String introVideoLink;
     private Boolean isEnabled;
-    private Boolean isProfileComplete;
+    private Boolean profileComplete;
+    private String onboardingStage;
 
     private List<CandidateDocumentResponse> documents;
     private StatusResponse statuses;

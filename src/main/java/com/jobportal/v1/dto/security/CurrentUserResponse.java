@@ -35,6 +35,8 @@ public class CurrentUserResponse {
     // Candidate specific
     private CandidateProfileResponse candidateProfile;
 
+    private String onboardingStage;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -90,5 +92,6 @@ public class CurrentUserResponse {
         private String candidateType;
         private String createdByType;
         private StatusResponse statuses;
+        private String onboardingStage;
     }
 }

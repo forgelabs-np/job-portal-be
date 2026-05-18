@@ -149,6 +149,7 @@ public class JobDemandServiceImpl implements JobDemandService {
         entity.setGenderPreference(request.getGenderPreference());
         entity.setPreferredNationalities(request.getPreferredNationalities());
         entity.setWorkingHoursPerWeek(request.getWorkingHoursPerWeek());
+        entity.setIsPublic(request.getIsPublic() != null ? request.getIsPublic() : false);
 
         if (request.getSalaryPeriod() != null) {
             entity.setSalaryPeriod(request.getSalaryPeriod());
@@ -224,6 +225,7 @@ public class JobDemandServiceImpl implements JobDemandService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .createdBy(entity.getCreatedBy())
+                .isPublic(entity.getIsPublic())
                 .build();
     }
 

@@ -51,6 +51,7 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                             .role("ADMIN")
                             .permissions("FULL_ACCESS")
                             .build())
+                    .isProfileComplete(true)
                     .build();
         }
 
@@ -96,6 +97,13 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                     .orElse(null);
 
             if (candidate != null) {
+                boolean profileComplete = calculateCandidateProfileComplete(candidate);
+
+                if (candidate.isProfileComplete() != profileComplete) {
+                    candidate.setProfileComplete(profileComplete);
+                    candidateRepository.save(candidate);
+                }
+
                 // Calculate age
                 Integer age = null;
                 if (candidate.getDateOfBirth() != null) {
@@ -108,15 +116,18 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                     isPassportValid = candidate.getPassportExpiryDate().isAfter(LocalDate.now());
                 }
 
-                // Get statuses
-                StatusResponse statuses = candidateStatusRepository.findByCandidateId(candidate.getId())
-                        .map(status -> StatusResponse.builder()
-                                .pccStatus(status.getPccStatus().name())
-                                .slcStatus(status.getSlcStatus().name())
-                                .workPermitStatus(status.getWorkPermitStatus().name())
-                                .visaStatus(status.getVisaStatus().name())
-                                .build())
-                        .orElse(null);
+                // Get statuses (only for agency-managed candidates)
+                StatusResponse statuses = null;
+                if (candidate.isAgencyManaged()) {
+                    statuses = candidateStatusRepository.findByCandidateId(candidate.getId())
+                            .map(status -> StatusResponse.builder()
+                                    .pccStatus(status.getPccStatus().name())
+                                    .slcStatus(status.getSlcStatus().name())
+                                    .workPermitStatus(status.getWorkPermitStatus().name())
+                                    .visaStatus(status.getVisaStatus().name())
+                                    .build())
+                            .orElse(null);
+                }
 
                 responseBuilder
                         .candidateProfile(CurrentUserResponse.CandidateProfileResponse.builder()
@@ -142,13 +153,40 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                                 .candidateType(candidate.getCandidateType().name())
                                 .createdByType(candidate.getCreatedByType().name())
                                 .statuses(statuses)
-                                .build());
+                                .build())
+                        .isProfileComplete(profileComplete);  // ✅ Set calculated value
             }
 
             return responseBuilder.build();
         }
 
         return responseBuilder.build();
+    }
+
+
+    private boolean calculateCandidateProfileComplete(Candidate candidate) {
+        if (candidate == null) {
+            return false;
+        }
+
+        if (isBlank(candidate.getFirstName()) || isBlank(candidate.getLastName())) {
+            return false;
+        }
+
+        if (candidate.isSelfRegistered()) {
+            return !isBlank(candidate.getTrade())
+                    && candidate.getDateOfBirth() != null
+                    && candidate.getMaritalStatus() != null
+                    && !isBlank(candidate.getPassportNumber())
+                    && candidate.getPassportIssueDate() != null
+                    && candidate.getPassportExpiryDate() != null;
+        }
+
+        return true;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private AgencyDocumentResponse toDocumentResponse(AgencyDocument document) {

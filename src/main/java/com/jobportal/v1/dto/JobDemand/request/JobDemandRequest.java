@@ -73,4 +73,5 @@ public class JobDemandRequest {
     private String terminationClause;
     private String additionalBenefits;
     private LocalDateTime deadline;
+    private Boolean isPublic = false;
 }

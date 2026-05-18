@@ -12,6 +12,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface CandidateService {
+
+    // Agency candidate management
     CandidateResponse createOrUpdateCandidate(CandidateRequest request, Long agencyId);
 
     CandidateResponse getCandidateById(Long id, Long agencyId);
@@ -22,14 +24,19 @@ public interface CandidateService {
 
     void deleteCandidate(Long id, Long agencyId);
 
-    CandidateResponse updateCandidateStatus(Long candidateId, CandidateStatusUpdateRequest request, Long adminId);
-
-    Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable);
-
-    // New document management methods for agency candidates
+    // Document management
     CandidateDocumentResponse uploadCandidateDocument(Long candidateId, Long agencyId, String documentType, MultipartFile file);
 
     List<CandidateDocumentResponse> getCandidateDocuments(Long candidateId, Long agencyId);
 
     void deleteCandidateDocument(Long candidateId, Long agencyId, Long documentId);
+
+    // Admin operations
+    CandidateResponse updateCandidateStatus(Long candidateId, CandidateStatusUpdateRequest request, Long adminId);
+
+    Page<AgencyCandidatesGroupResponse> getAllCandidatesGroupedByAgency(Pageable pageable);
+
+    CandidateResponse adminToggleCandidateStatus(Long candidateId);
+
+    Page<CandidateResponse> getSelfRegisteredCandidates(Pageable pageable);
 }

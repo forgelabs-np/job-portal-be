@@ -65,6 +65,9 @@ public class JobDemand {
     @Column(name = "salary_period")
     private SalaryPeriod salaryPeriod = SalaryPeriod.MONTHLY;
 
+    @Column(name = "is_public", nullable = false)
+    private Boolean isPublic = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "gender_preference", nullable = false)
     private GenderPreference genderPreference;

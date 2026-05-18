@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JobDemandRepository extends JpaRepository<JobDemand, Long> {
@@ -48,4 +49,9 @@ public interface JobDemandRepository extends JpaRepository<JobDemand, Long> {
 
     @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.createdAt BETWEEN :start AND :end")
     Long countByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Public job queries (for self-candidates)
+    Page<JobDemand> findByIsPublicTrueAndStatusAndIsActiveTrue(JobStatus status, Pageable pageable);
+
+    Optional<JobDemand> findByIdAndIsPublicTrueAndIsActiveTrue(Long id);
 }

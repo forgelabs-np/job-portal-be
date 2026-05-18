@@ -68,4 +68,6 @@ public class JobDemandResponse {
     private LocalDateTime updatedAt;
 
     private Long createdBy;
+
+    private Boolean isPublic;
 }

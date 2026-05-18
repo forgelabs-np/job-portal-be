@@ -15,7 +15,6 @@ import com.jobportal.v1.util.DocumentValidationUtil;
 import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,9 +23,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,12 +37,10 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
 
     private final CandidateRepository candidateRepository;
     private final CandidateDocumentRepository documentRepository;
-    private final CandidateStatusRepository statusRepository;
     private final UserRepository userRepository;
     private final JobDemandRepository jobDemandRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final FileUploadUtil fileUploadUtil;
-
 
     @Override
     @Transactional
@@ -58,7 +57,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
             isUpdate = true;
             log.info("Updating candidate profile: {} by user: {}", request.getFirstName(), userId);
         } else {
-            java.util.Optional<Candidate> existing = candidateRepository.findByUserId(userId);
+            Optional<Candidate> existing = candidateRepository.findByUserId(userId);
             if (existing.isPresent()) {
                 candidate = existing.get();
                 isUpdate = true;
@@ -71,10 +70,6 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 candidate.setCreatedByType(CreatedByType.CANDIDATE);
                 candidate.setCreatedBy(userId);
                 candidate.setIsEnabled(true);
-
-                //Set profile complete for self-registered candidates
-                candidate.setProfileComplete(true);
-
                 log.info("Creating new candidate profile: {} by user: {}", request.getFirstName(), userId);
             }
         }
@@ -93,12 +88,8 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
 
         Candidate saved = candidateRepository.save(candidate);
 
-        // Create status if new
-        if (!isUpdate) {
-            CandidateStatus status = new CandidateStatus();
-            status.setCandidate(saved);
-            statusRepository.save(status);
-        }
+        saved.setProfileComplete(saved.calculateProfileComplete());
+        candidateRepository.save(saved);
 
         log.info("Candidate profile {} for user: {}", isUpdate ? "updated" : "created", userId);
         return mapToResponse(saved);
@@ -133,8 +124,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
         DocumentType validatedDocType = DocumentValidationUtil.validateAndGetDocumentType(documentType);
 
         try {
-            // Check if document already exists for this type
-            java.util.Optional<CandidateDocument> existingDoc = documentRepository
+            Optional<CandidateDocument> existingDoc = documentRepository
                     .findByCandidateIdAndDocumentType(candidate.getId(), validatedDocType);
 
             String filePath;
@@ -142,21 +132,18 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
 
             if (existingDoc.isPresent()) {
                 document = existingDoc.get();
-                // Delete old file
                 if (document.getDocumentPath() != null) {
                     fileUploadUtil.deleteFile(document.getDocumentPath());
                 }
-                // Upload new file (validation happens inside FileUploadUtil)
                 filePath = fileUploadUtil.uploadSelfCandidateDocument(candidate.getId(), validatedDocType.name(), file);
 
                 document.setDocumentName(file.getOriginalFilename());
                 document.setDocumentPath(filePath);
                 document.setNotes(null);
-                document.setUploadedAt(java.time.LocalDateTime.now());
+                document.setUploadedAt(LocalDateTime.now());
 
                 log.info("Document re-uploaded for candidate: {}, type: {}", userId, validatedDocType);
             } else {
-                // Upload new file (validation happens inside FileUploadUtil)
                 filePath = fileUploadUtil.uploadSelfCandidateDocument(candidate.getId(), validatedDocType.name(), file);
 
                 document = new CandidateDocument();
@@ -225,16 +212,50 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
             throw new BadRequestException("Your profile is disabled. Please contact support.");
         }
 
+        // Check if profile is complete
+        if (!candidate.isProfileComplete()) {
+            throw new BadRequestException(
+                    "Your profile is incomplete. Please fill all required fields " +
+                            "(trade, date of birth, marital status, passport number, " +
+                            "passport issue date, passport expiry date) before applying.");
+        }
+
         JobDemand job = jobDemandRepository.findById(jobDemandId)
                 .orElseThrow(() -> new ResourceNotFoundException("Job not found"));
+
+        // Check if job is public
+        if (!Boolean.TRUE.equals(job.getIsPublic())) {
+            throw new BadRequestException("This job is not open for direct applications.");
+        }
 
         if (!job.isOpen()) {
             throw new BadRequestException("Job is not open for applications");
         }
 
-        boolean alreadyApplied = jobApplicationRepository.existsByJobDemandIdAndCandidateId(jobDemandId, candidate.getId());
-        if (alreadyApplied) {
-            throw new BadRequestException("You have already applied for this job");
+        // Check for existing application - allow re-apply if WITHDRAWN or REJECTED
+        Optional<JobApplication> existing = jobApplicationRepository
+                .findByJobDemandIdAndCandidateId(jobDemandId, candidate.getId());
+
+        if (existing.isPresent()) {
+            ApplicationStatus currentStatus = existing.get().getStatus();
+            if (currentStatus == ApplicationStatus.PENDING
+                    || currentStatus == ApplicationStatus.REVIEWED
+                    || currentStatus == ApplicationStatus.SHORTLISTED) {
+                throw new BadRequestException(
+                        "You already have an active application. Status: " + currentStatus.name());
+            }
+
+            // Reactivate withdrawn or rejected application
+            JobApplication reactivated = existing.get();
+            reactivated.setStatus(ApplicationStatus.PENDING);
+            reactivated.setNotes(notes);
+            reactivated.setAppliedAt(LocalDateTime.now());
+            reactivated.setRejectionReason(null);
+            reactivated.setReviewedBy(null);
+            reactivated.setReviewedAt(null);
+
+            log.info("Self-registered candidate re-applied for job: {} by user: {}", jobDemandId, userId);
+            return mapToApplicationResponse(jobApplicationRepository.save(reactivated));
         }
 
         JobApplication application = new JobApplication();
@@ -248,6 +269,35 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
         log.info("Self-registered candidate applied for job: {} by user: {}", jobDemandId, userId);
 
         return mapToApplicationResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public JobApplicationResponse withdrawApplication(Long userId, Long applicationId) {
+        Candidate candidate = candidateRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
+
+        JobApplication application = jobApplicationRepository
+                .findByIdAndCandidateId(applicationId, candidate.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
+
+        ApplicationStatus current = application.getStatus();
+
+        if (current == ApplicationStatus.WITHDRAWN) {
+            throw new BadRequestException("Application is already withdrawn");
+        }
+        if (current == ApplicationStatus.REJECTED) {
+            throw new BadRequestException("Cannot withdraw a rejected application");
+        }
+        if (current == ApplicationStatus.SHORTLISTED) {
+            throw new BadRequestException(
+                    "Cannot withdraw a shortlisted application. Please contact support.");
+        }
+
+        application.setStatus(ApplicationStatus.WITHDRAWN);
+        log.info("Self-registered candidate withdrew application: {} for user: {}", applicationId, userId);
+
+        return mapToApplicationResponse(jobApplicationRepository.save(application));
     }
 
     private CandidateResponse mapToResponse(Candidate entity) {
@@ -264,15 +314,6 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
         List<CandidateDocumentResponse> documents = documentRepository.findByCandidateId(entity.getId()).stream()
                 .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
-
-        StatusResponse statuses = statusRepository.findByCandidateId(entity.getId())
-                .map(status -> StatusResponse.builder()
-                        .pccStatus(status.getPccStatus().name())
-                        .slcStatus(status.getSlcStatus().name())
-                        .workPermitStatus(status.getWorkPermitStatus().name())
-                        .visaStatus(status.getVisaStatus().name())
-                        .build())
-                .orElse(null);
 
         return CandidateResponse.builder()
                 .id(entity.getId())
@@ -297,8 +338,8 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .introVideoLink(entity.getIntroVideoLink())
                 .isEnabled(entity.getIsEnabled())
                 .documents(documents)
-                .isProfileComplete(entity.isProfileComplete())
-                .statuses(statuses)
+                .profileComplete(entity.isProfileComplete())
+                .statuses(null)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

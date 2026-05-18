@@ -27,6 +27,7 @@ public class AdminApplicationResponse {
     private String candidateName;
     private String candidateTrade;
     private String candidatePassportNumber;
+    private String candidateType;
 
     // Application details
     private String notes;

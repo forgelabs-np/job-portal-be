@@ -1,6 +1,7 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.admin.response.AdminApplicationResponse;
+import com.jobportal.v1.dto.admin.response.AdminSelfApplicationResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobApplicationResponse;
 import com.jobportal.v1.dto.jobApplicationReport.request.ApplicationStatusUpdateRequest;
 import com.jobportal.v1.dto.jobApplicationReport.request.JobApplicationRequest;
@@ -237,6 +238,143 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         return mapToAgencyJobApplicationResponse(application);
     }
 
+    @Override
+    public Page<JobApplicationResponse> getAllSelfApplications(Long jobDemandId, String status, Pageable pageable) {
+        Page<JobApplication> applications;
+
+        if (jobDemandId != null && status != null) {
+            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
+            applications = jobApplicationRepository.findByJobDemandIdAndStatusAndAgencyIsNull(jobDemandId, appStatus, pageable);
+        } else if (jobDemandId != null) {
+            applications = jobApplicationRepository.findByJobDemandIdAndAgencyIsNull(jobDemandId, pageable);
+        } else if (status != null) {
+            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
+            applications = jobApplicationRepository.findByStatusAndAgencyIsNull(appStatus, pageable);
+        } else {
+            applications = jobApplicationRepository.findByAgencyIsNull(pageable);
+        }
+        return applications.map(this::mapToJobApplicationResponse);
+    }
+    @Override
+    public AdminSelfApplicationResponse getSelfApplicationDetails(Long applicationId) {
+        JobApplication application = jobApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
+
+        // Verify it's a self-candidate application (agency is null)
+        if (application.getAgency() != null) {
+            throw new BadRequestException("This is not a self-candidate application. Use agency application endpoint.");
+        }
+
+        return mapToAdminSelfApplicationResponse(application);
+    }
+
+    @Override
+    @Transactional
+    public AdminSelfApplicationResponse updateSelfApplicationStatus(Long applicationId, ApplicationStatusUpdateRequest request, Long adminId) {
+        JobApplication application = jobApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
+
+        // Verify it's a self-candidate application
+        if (application.getAgency() != null) {
+            throw new BadRequestException("This is not a self-candidate application. Use agency application endpoint.");
+        }
+
+        if (request.getStatus() == ApplicationStatus.REJECTED &&
+                (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
+            throw new BadRequestException("Rejection reason is required when rejecting an application");
+        }
+
+        application.setStatus(request.getStatus());
+        application.setReviewedBy(adminId);
+        application.setReviewedAt(LocalDateTime.now());
+        application.setRejectionReason(request.getRejectionReason());
+
+        if (request.getStatus() == ApplicationStatus.SHORTLISTED) {
+            application.getJobDemand().incrementFilledSlots();
+            jobDemandRepository.save(application.getJobDemand());
+        }
+
+        JobApplication saved = jobApplicationRepository.save(application);
+
+        log.info("Self-application {} status updated to {} by admin {}",
+                applicationId, request.getStatus(), adminId);
+
+        return mapToAdminSelfApplicationResponse(saved);
+    }
+
+
+    private AdminSelfApplicationResponse mapToAdminSelfApplicationResponse(JobApplication entity) {
+        Candidate candidate = entity.getCandidate();
+
+        Integer age = null;
+        if (candidate.getDateOfBirth() != null) {
+            age = Period.between(candidate.getDateOfBirth(), LocalDate.now()).getYears();
+        }
+
+        List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+        // Map documents to DocumentInfo
+        List<AdminSelfApplicationResponse.DocumentInfo> documentInfos = documents.stream()
+                .map(doc -> AdminSelfApplicationResponse.DocumentInfo.builder()
+                        .id(doc.getId())
+                        .documentType(doc.getDocumentType().name())
+                        .documentName(doc.getDocumentName())
+                        .documentPath(doc.getDocumentPath())
+                        .status(doc.getStatus() != null ? doc.getStatus().name() : "PENDING")
+                        .rejectionReason(doc.getRejectionReason())
+                        .uploadedAt(doc.getUploadedAt() != null ?
+                                doc.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                        .build())
+                .collect(Collectors.toList());
+
+        // Create document status map
+        Map<String, String> documentStatuses = documents.stream()
+                .collect(Collectors.toMap(
+                        doc -> doc.getDocumentType().name(),
+                        doc -> doc.getStatus() != null ? doc.getStatus().name() : "PENDING",
+                        (existing, replacement) -> existing
+                ));
+
+        // Check if all documents are approved
+        boolean allDocumentsApproved = !documents.isEmpty() && documents.stream()
+                .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+
+        return AdminSelfApplicationResponse.builder()
+                .id(entity.getId())
+                .jobDemandId(entity.getJobDemand().getId())
+                .jobTitle(entity.getJobDemand().getTitle())
+                .jobCountry(entity.getJobDemand().getCountry() != null ?
+                        entity.getJobDemand().getCountry().getName() : null)
+                .jobCity(entity.getJobDemand().getCity())
+                .salaryAmount(entity.getJobDemand().getSalaryAmount())
+                .salaryCurrency(entity.getJobDemand().getSalaryCurrency())
+                .candidateId(candidate.getId())
+                .candidateName(candidate.getFullName())
+                .candidateEmail(candidate.getUser() != null ? candidate.getUser().getEmail() : null)
+                .candidatePhone(candidate.getUser() != null ? candidate.getUser().getPhoneNumber() : null)
+                .candidateTrade(candidate.getTrade())
+                .candidatePassportNumber(candidate.getPassportNumber())
+                .candidateAge(age)
+                .candidateMaritalStatus(candidate.getMaritalStatus() != null ?
+                        candidate.getMaritalStatus().name() : null)
+                .isProfileComplete(candidate.isProfileComplete())
+                .isEnabled(candidate.getIsEnabled())
+                .notes(entity.getNotes())
+                .status(entity.getStatus().name())
+                .appliedAt(entity.getAppliedAt() != null ?
+                        entity.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .rejectionReason(entity.getRejectionReason())
+                .reviewedBy(entity.getReviewedBy())
+                .reviewedAt(entity.getReviewedAt() != null ?
+                        entity.getReviewedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .documents(documentInfos)
+                .documentStatuses(documentStatuses)
+                .allDocumentsApproved(allDocumentsApproved)
+                .build();
+    }
+
     private JobApplicationResponse mapToAgencyResponse(JobApplication entity) {
         return JobApplicationResponse.builder()
                 .id(entity.getId())
@@ -361,6 +499,29 @@ public class JobApplicationServiceImpl implements JobApplicationService {
                 .candidateAge(age)
                 .candidateMaritalStatus(candidate.getMaritalStatus() != null ?
                         candidate.getMaritalStatus().name() : null)
+                .build();
+    }
+
+    private JobApplicationResponse mapToJobApplicationResponse(JobApplication entity) {
+        return JobApplicationResponse.builder()
+                .id(entity.getId())
+                .jobDemandId(entity.getJobDemand().getId())
+                .jobTitle(entity.getJobDemand().getTitle())
+                .country(entity.getJobDemand().getCountry() != null ?
+                        entity.getJobDemand().getCountry().getName() : null)
+                .city(entity.getJobDemand().getCity())
+                .salaryAmount(entity.getJobDemand().getSalaryAmount())
+                .salaryCurrency(entity.getJobDemand().getSalaryCurrency())
+                .candidateId(entity.getCandidate().getId())
+                .candidateName(entity.getCandidate().getFullName())
+                .candidateTrade(entity.getCandidate().getTrade())
+                .notes(entity.getNotes())
+                .status(entity.getStatus().name())
+                .appliedAt(entity.getAppliedAt() != null ?
+                        entity.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .rejectionReason(entity.getRejectionReason())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

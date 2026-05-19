@@ -7,9 +7,11 @@ import com.jobportal.v1.dto.candidate.request.CandidateProfileRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateJobApplicationResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
+import com.jobportal.v1.dto.dashboard.response.candidate.CandidateDashboardResponse;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.CandidateDashboardService;
 import com.jobportal.v1.service.CandidateSelfService;
 import com.jobportal.v1.util.Pages;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +39,16 @@ import java.util.List;
 public class CandidateSelfController {
 
     private final CandidateSelfService candidateSelfService;
+    private final CandidateDashboardService candidateDashboardService;
+
+    @Operation(summary = "Candidate Dashboard", description = "Get dashboard statistics and activities for self-candidate")
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<CandidateDashboardResponse>> getDashboard(
+            @CurrentUser UserPrincipal candidate) {
+
+        CandidateDashboardResponse response = candidateDashboardService.getCandidateDashboard(candidate.getId());
+        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+    }
 
     @Operation(summary = "Create or Update My Profile", description = "Create new profile (without id) or update existing (with id)")
     @PostMapping("/profile")

@@ -54,4 +54,8 @@ public interface JobDemandRepository extends JpaRepository<JobDemand, Long> {
     Page<JobDemand> findByIsPublicTrueAndStatusAndIsActiveTrue(JobStatus status, Pageable pageable);
 
     Optional<JobDemand> findByIdAndIsPublicTrueAndIsActiveTrue(Long id);
+
+    @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.isPublic = true AND j.status = :status AND j.isActive = true")
+    long countByIsPublicTrueAndStatusAndIsActiveTrue(@Param("status") JobStatus status);
+
 }

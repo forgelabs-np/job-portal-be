@@ -54,4 +54,18 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
 
     @Query("SELECT COUNT(ja) FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.status = 'PENDING'")
     Long countPendingByJobDemand(@Param("jobDemandId") Long jobDemandId);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.agency IS NULL")
+    Page<JobApplication> findByAgencyIsNull(Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.agency IS NULL")
+    Page<JobApplication> findByJobDemandIdAndAgencyIsNull(@Param("jobDemandId") Long jobDemandId, Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.status = :status AND ja.agency IS NULL")
+    Page<JobApplication> findByStatusAndAgencyIsNull(@Param("status") ApplicationStatus status, Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.status = :status AND ja.agency IS NULL")
+    Page<JobApplication> findByJobDemandIdAndStatusAndAgencyIsNull(@Param("jobDemandId") Long jobDemandId,
+                                                                   @Param("status") ApplicationStatus status,
+                                                                   Pageable pageable);
 }

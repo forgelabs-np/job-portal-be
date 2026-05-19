@@ -4,6 +4,7 @@ import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.admin.response.AdminApplicationResponse;
+import com.jobportal.v1.dto.agency.response.AgencyJobApplicationResponse;
 import com.jobportal.v1.dto.jobApplicationReport.request.ApplicationStatusUpdateRequest;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
@@ -48,10 +49,10 @@ public class AdminApplicationController {
 
     @Operation(summary = "Get Application Details", description = "Get detailed application information")
     @GetMapping("/{applicationId}")
-    public ResponseEntity<ApiResponse<AdminApplicationResponse>> getApplicationDetails(
+    public ResponseEntity<ApiResponse<AgencyJobApplicationResponse>> getApplicationDetails(
             @PathVariable Long applicationId) {
 
-        AdminApplicationResponse response = jobApplicationService.getApplicationDetails(applicationId);
+        AgencyJobApplicationResponse response = jobApplicationService.getApplicationDetails(applicationId);
         return ResponseEntity.ok(ApiResponse.success("Application details retrieved", response));
     }
 

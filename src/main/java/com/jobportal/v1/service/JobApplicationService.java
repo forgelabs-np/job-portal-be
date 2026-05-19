@@ -1,6 +1,7 @@
 package com.jobportal.v1.service;
 
 import com.jobportal.v1.dto.admin.response.AdminApplicationResponse;
+import com.jobportal.v1.dto.agency.response.AgencyJobApplicationResponse;
 import com.jobportal.v1.dto.jobApplicationReport.request.ApplicationStatusUpdateRequest;
 import com.jobportal.v1.dto.jobApplicationReport.request.JobApplicationRequest;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
@@ -14,7 +15,7 @@ public interface JobApplicationService {
 
     Page<JobApplicationResponse> getMyApplications(Long agencyId, Long jobDemandId, String status, Pageable pageable);
 
-    JobApplicationResponse getMyApplicationById(Long applicationId, Long agencyId);
+    AgencyJobApplicationResponse getMyApplicationById(Long applicationId, Long agencyId);
 
     JobApplicationResponse withdrawApplication(Long applicationId, Long agencyId);
 
@@ -23,5 +24,5 @@ public interface JobApplicationService {
 
     AdminApplicationResponse updateApplicationStatus(Long applicationId, ApplicationStatusUpdateRequest request, Long adminId);
 
-    AdminApplicationResponse getApplicationDetails(Long applicationId);
+    AgencyJobApplicationResponse getApplicationDetails(Long applicationId);
 }

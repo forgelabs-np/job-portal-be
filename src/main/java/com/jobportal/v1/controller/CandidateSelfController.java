@@ -5,6 +5,7 @@ import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.candidate.request.CandidateProfileRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
+import com.jobportal.v1.dto.candidate.response.CandidateJobApplicationResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import com.jobportal.v1.security.CurrentUser;
@@ -33,7 +34,7 @@ import java.util.List;
 @RequestMapping("/api/candidate")
 @PreAuthorize("hasRole('CANDIDATE')")
 @Tag(name = "Candidate - Self Service", description = "Candidate Self-Management APIs")
-public class CandidateProfileController {
+public class CandidateSelfController {
 
     private final CandidateSelfService candidateSelfService;
 
@@ -98,15 +99,16 @@ public class CandidateProfileController {
         return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
     }
 
-    @Operation(summary = "Get Application by ID", description = "Get a specific job application by ID")
+    @Operation(summary = "Get Application by ID", description = "Get detailed job application by ID with document statuses")
     @GetMapping("/applications/{applicationId}")
-    public ResponseEntity<ApiResponse<JobApplicationResponse>> getMyApplicationById(
+    public ResponseEntity<ApiResponse<CandidateJobApplicationResponse>> getMyApplicationById(
             @PathVariable Long applicationId,
             @CurrentUser UserPrincipal candidate) {
 
-        JobApplicationResponse response = candidateSelfService.getMyApplicationById(candidate.getId(), applicationId);
+        CandidateJobApplicationResponse response = candidateSelfService.getMyApplicationById(candidate.getId(), applicationId);
         return ResponseEntity.ok(ApiResponse.success("Application retrieved", response));
     }
+
 
     @Operation(summary = "Apply for Job", description = "Submit application for a job")
     @PostMapping("/jobs/{jobDemandId}/apply")

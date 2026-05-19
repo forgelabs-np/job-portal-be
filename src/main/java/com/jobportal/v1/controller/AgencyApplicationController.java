@@ -3,6 +3,7 @@ package com.jobportal.v1.controller;
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.PageRes;
+import com.jobportal.v1.dto.agency.response.AgencyJobApplicationResponse;
 import com.jobportal.v1.dto.jobApplicationReport.request.JobApplicationRequest;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import com.jobportal.v1.security.CurrentUser;
@@ -56,13 +57,12 @@ public class AgencyApplicationController {
         return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
     }
 
-    @Operation(summary = "Get Application by ID", description = "Get specific application details")
     @GetMapping("/{applicationId}")
-    public ResponseEntity<ApiResponse<JobApplicationResponse>> getApplicationById(
+    public ResponseEntity<ApiResponse<AgencyJobApplicationResponse>> getApplicationById(
             @PathVariable Long applicationId,
             @CurrentUser UserPrincipal agency) {
 
-        JobApplicationResponse response = jobApplicationService.getMyApplicationById(applicationId, agency.getId());
+        AgencyJobApplicationResponse response = jobApplicationService.getMyApplicationById(applicationId, agency.getId());
         return ResponseEntity.ok(ApiResponse.success("Application retrieved", response));
     }
 

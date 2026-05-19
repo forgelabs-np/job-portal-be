@@ -2,6 +2,7 @@ package com.jobportal.v1.service;
 
 import com.jobportal.v1.dto.candidate.request.CandidateProfileRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
+import com.jobportal.v1.dto.candidate.response.CandidateJobApplicationResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import org.springframework.data.domain.Page;
@@ -27,7 +28,7 @@ public interface CandidateSelfService {
     // Job applications
     Page<JobApplicationResponse> getMyApplications(Long userId, Pageable pageable);
 
-    JobApplicationResponse getMyApplicationById(Long userId, Long applicationId);
+    CandidateJobApplicationResponse getMyApplicationById(Long userId, Long applicationId);
 
     JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes);
 

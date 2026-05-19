@@ -1,11 +1,13 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.admin.response.AdminApplicationResponse;
+import com.jobportal.v1.dto.agency.response.AgencyJobApplicationResponse;
 import com.jobportal.v1.dto.jobApplicationReport.request.ApplicationStatusUpdateRequest;
 import com.jobportal.v1.dto.jobApplicationReport.request.JobApplicationRequest;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import com.jobportal.v1.entity.*;
 import com.jobportal.v1.enums.ApplicationStatus;
+import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
@@ -17,9 +19,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +37,7 @@ public class JobApplicationServiceImpl implements JobApplicationService {
     private final JobDemandRepository jobDemandRepository;
     private final CandidateRepository candidateRepository;
     private final JobAgencyAssignmentRepository assignmentRepository;
+    private final CandidateDocumentRepository documentRepository;
 
     @Override
     @Transactional
@@ -138,11 +146,10 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         return applications.map(this::mapToAgencyResponse);
     }
 
-    @Override
-    public JobApplicationResponse getMyApplicationById(Long applicationId, Long agencyId) {
+    public AgencyJobApplicationResponse getMyApplicationById(Long applicationId, Long agencyId) {
         JobApplication application = jobApplicationRepository.findByIdAndAgencyId(applicationId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
-        return mapToAgencyResponse(application);
+        return mapToAgencyJobApplicationResponse(application);
     }
 
     @Override
@@ -224,10 +231,10 @@ public class JobApplicationServiceImpl implements JobApplicationService {
     }
 
     @Override
-    public AdminApplicationResponse getApplicationDetails(Long applicationId) {
+    public AgencyJobApplicationResponse getApplicationDetails(Long applicationId) {
         JobApplication application = jobApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
-        return mapToAdminResponse(application);
+        return mapToAgencyJobApplicationResponse(application);
     }
 
     private JobApplicationResponse mapToAgencyResponse(JobApplication entity) {
@@ -278,6 +285,82 @@ public class JobApplicationServiceImpl implements JobApplicationService {
                         entity.getReviewedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private AgencyJobApplicationResponse mapToAgencyJobApplicationResponse(JobApplication entity) {
+        Candidate candidate = entity.getCandidate();
+
+        // Calculate age
+        Integer age = null;
+        if (candidate.getDateOfBirth() != null) {
+            age = Period.between(candidate.getDateOfBirth(), LocalDate.now()).getYears();
+        }
+
+        // Get all documents for this candidate
+        List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+        // Map documents to DocumentInfo
+        List<AgencyJobApplicationResponse.DocumentInfo> documentInfos = documents.stream()
+                .map(doc -> AgencyJobApplicationResponse.DocumentInfo.builder()
+                        .id(doc.getId())
+                        .documentType(doc.getDocumentType().name())
+                        .documentName(doc.getDocumentName())
+                        .documentPath(doc.getDocumentPath())
+                        .status(doc.getStatus() != null ? doc.getStatus().name() : "PENDING")
+                        .rejectionReason(doc.getRejectionReason())
+                        .uploadedAt(doc.getUploadedAt() != null ?
+                                doc.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                        .build())
+                .collect(Collectors.toList());
+
+        // Create document status map
+        Map<String, String> documentStatuses = documents.stream()
+                .collect(Collectors.toMap(
+                        doc -> doc.getDocumentType().name(),
+                        doc -> doc.getStatus() != null ? doc.getStatus().name() : "PENDING",
+                        (existing, replacement) -> existing
+                ));
+
+        // Check if all documents are approved
+        boolean allDocumentsApproved = !documents.isEmpty() && documents.stream()
+                .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+
+        return AgencyJobApplicationResponse.builder()
+                .id(entity.getId())
+                .jobDemandId(entity.getJobDemand().getId())
+                .jobTitle(entity.getJobDemand().getTitle())
+                .country(entity.getJobDemand().getCountry() != null ?
+                        entity.getJobDemand().getCountry().getName() : null)
+                .city(entity.getJobDemand().getCity())
+                .salaryAmount(entity.getJobDemand().getSalaryAmount())
+                .salaryCurrency(entity.getJobDemand().getSalaryCurrency())
+                .candidateId(candidate.getId())
+                .candidateName(candidate.getFullName())
+                .candidateTrade(candidate.getTrade())
+                .notes(entity.getNotes())
+                .status(entity.getStatus().name())
+                .appliedAt(entity.getAppliedAt() != null ?
+                        entity.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .rejectionReason(entity.getRejectionReason())
+                .reviewedBy(entity.getReviewedBy())
+                .reviewedAt(entity.getReviewedAt() != null ?
+                        entity.getReviewedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
+                .agencyName(entity.getAgency() != null ? entity.getAgency().getFullName() : null)
+                .documents(documentInfos)
+                .documentStatuses(documentStatuses)
+                .allDocumentsApproved(allDocumentsApproved)
+                .isProfileComplete(candidate.isProfileComplete())
+                .isEnabled(candidate.getIsEnabled())
+                .candidateEmail(candidate.getUser() != null ? candidate.getUser().getEmail() : null)
+                .candidatePhone(candidate.getUser() != null ? candidate.getUser().getPhoneNumber() : null)
+                .candidatePassportNumber(candidate.getPassportNumber())
+                .candidateAge(age)
+                .candidateMaritalStatus(candidate.getMaritalStatus() != null ?
+                        candidate.getMaritalStatus().name() : null)
                 .build();
     }
 }

@@ -3,11 +3,15 @@ package com.jobportal.v1.controller;
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.PageRes;
+import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.admin.response.AdminSelfApplicationResponse;
+import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
+import com.jobportal.v1.dto.candidate.response.DocumentVerificationStats;
 import com.jobportal.v1.dto.jobApplicationReport.request.ApplicationStatusUpdateRequest;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.AdminCandidateDocumentService;
 import com.jobportal.v1.service.JobApplicationService;
 import com.jobportal.v1.util.Pages;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +26,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -31,6 +37,8 @@ import org.springframework.web.bind.annotation.*;
 public class AdminSelfApplicationController {
 
     private final JobApplicationService jobApplicationService;
+    private final AdminCandidateDocumentService adminCandidateDocumentService;
+
 
     @Operation(summary = "Get All Self-Candidate Applications", description = "Get all applications from self-registered candidates (lightweight list)")
     @GetMapping
@@ -67,5 +75,49 @@ public class AdminSelfApplicationController {
 
         String message = "Application status updated to " + request.getData().getStatus();
         return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    // ============ Document Verification (Similar to Agency Profile) ============
+
+    @Operation(summary = "Get Pending Candidate Documents", description = "Get all candidate documents pending approval")
+    @GetMapping("/documents/pending")
+    public ResponseEntity<ApiResponse<PageRes<CandidateDocumentResponse>>> getPendingDocuments(
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        Page<CandidateDocumentResponse> response = adminCandidateDocumentService.getPendingDocuments(pageable);
+        PageRes<CandidateDocumentResponse> pageRes = Pages.of(response);
+
+        return ResponseEntity.ok(ApiResponse.success("Pending documents retrieved", pageRes));
+    }
+
+    @Operation(summary = "Get Documents by Candidate", description = "Get all documents for a specific candidate")
+    @GetMapping("/candidates/{candidateId}/documents")
+    public ResponseEntity<ApiResponse<List<CandidateDocumentResponse>>> getDocumentsByCandidate(
+            @PathVariable Long candidateId) {
+
+        List<CandidateDocumentResponse> response = adminCandidateDocumentService.getDocumentsByCandidate(candidateId);
+        return ResponseEntity.ok(ApiResponse.success("Candidate documents retrieved", response));
+    }
+
+    @Operation(summary = "Process Document Approval", description = "Approve or reject a candidate document")
+    @PostMapping("/documents/process")
+    public ResponseEntity<ApiResponse<CandidateDocumentResponse>> processDocumentApproval(
+            @Valid @RequestBody ApiRequest<DocumentApprovalRequest> request,
+            @CurrentUser UserPrincipal admin) {
+
+        CandidateDocumentResponse response = adminCandidateDocumentService.processDocumentApproval(
+                request.getData(), admin.getId());
+
+        String message = request.getData().getStatus().name().equals("APPROVED")
+                ? "Document approved successfully"
+                : "Document rejected successfully";
+        return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    @Operation(summary = "Get Document Statistics", description = "Get document verification statistics")
+    @GetMapping("/documents/statistics")
+    public ResponseEntity<ApiResponse<DocumentVerificationStats>> getDocumentStatistics() {
+        DocumentVerificationStats response = adminCandidateDocumentService.getDocumentStatistics();
+        return ResponseEntity.ok(ApiResponse.success("Statistics retrieved", response));
     }
 }

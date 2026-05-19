@@ -12,6 +12,12 @@ public class DashboardStats {
     private Long approvedAgencies;
     private Long rejectedAgencies;
 
+    // SELF CANDIDATE Stats
+    private Long totalSelfCandidates;
+    private Long activeSelfCandidates;
+    private Long inactiveSelfCandidates;
+    private Long completeProfileSelfCandidates;
+
     // Job Stats
     private Long totalJobs;
     private Long openJobs;

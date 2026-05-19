@@ -38,4 +38,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     // Admin methods
     @Query("SELECT c FROM Candidate c WHERE c.candidateType = :type AND c.agency.id = :agencyId")
     Page<Candidate> findByAgencyIdAndCandidateType(@Param("agencyId") Long agencyId, @Param("type") CandidateType type, Pageable pageable);
+
+    long countByCandidateType(CandidateType candidateType);
+
+    long countByCandidateTypeAndIsEnabled(CandidateType candidateType, Boolean isEnabled);
+
+    long countByCandidateTypeAndProfileCompleteTrue(CandidateType candidateType);
 }

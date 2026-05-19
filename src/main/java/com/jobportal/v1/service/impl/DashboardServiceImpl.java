@@ -5,8 +5,10 @@ import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.entity.User;
 import com.jobportal.v1.enums.ApprovalStatus;
+import com.jobportal.v1.enums.CandidateType;
 import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.enums.RoleEnum;
+import com.jobportal.v1.repository.CandidateRepository;
 import com.jobportal.v1.repository.JobDemandRepository;
 import com.jobportal.v1.repository.UserRepository;
 import com.jobportal.v1.service.DashboardService;
@@ -27,6 +29,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final UserRepository userRepository;
     private final JobDemandRepository jobDemandRepository;
+    private final CandidateRepository candidateRepository;
 
     @Override
     public AdminDashboardResponse getAdminDashboard() {
@@ -35,6 +38,11 @@ public class DashboardServiceImpl implements DashboardService {
         Long pendingAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.PENDING);
         Long approvedAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.APPROVED);
         Long rejectedAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.REJECTED);
+
+        Long totalSelfCandidates = candidateRepository.countByCandidateType(CandidateType.SELF_REGISTERED);
+        Long activeSelfCandidates = candidateRepository.countByCandidateTypeAndIsEnabled(CandidateType.SELF_REGISTERED, true);
+        Long inactiveSelfCandidates = candidateRepository.countByCandidateTypeAndIsEnabled(CandidateType.SELF_REGISTERED, false);
+        Long completeProfileSelfCandidates = candidateRepository.countByCandidateTypeAndProfileCompleteTrue(CandidateType.SELF_REGISTERED);
 
         // Job Stats
         Long totalJobs = jobDemandRepository.countAllActiveJobs();
@@ -52,6 +60,10 @@ public class DashboardServiceImpl implements DashboardService {
                 .totalAgencies(totalAgencies)
                 .pendingAgencies(pendingAgencies)
                 .approvedAgencies(approvedAgencies)
+                .activeSelfCandidates(activeSelfCandidates)
+                .inactiveSelfCandidates(inactiveSelfCandidates)
+                .completeProfileSelfCandidates(completeProfileSelfCandidates)
+                .totalSelfCandidates(totalSelfCandidates)
                 .rejectedAgencies(rejectedAgencies)
                 .totalJobs(totalJobs)
                 .openJobs(openJobs)

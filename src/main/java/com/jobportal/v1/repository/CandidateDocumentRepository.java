@@ -1,7 +1,10 @@
 package com.jobportal.v1.repository;
 
 import com.jobportal.v1.entity.CandidateDocument;
+import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.enums.DocumentType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,4 +22,8 @@ public interface CandidateDocumentRepository extends JpaRepository<CandidateDocu
     boolean existsByCandidateIdAndDocumentType(Long candidateId, DocumentType documentType);
 
     void deleteByCandidateId(Long candidateId);
+
+    Page<CandidateDocument> findByStatus(ApprovalStatus status, Pageable pageable);
+
+    long countByStatus(ApprovalStatus status);
 }

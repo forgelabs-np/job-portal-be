@@ -2,6 +2,7 @@ package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.candidate.request.CandidateProfileRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
+import com.jobportal.v1.dto.candidate.response.CandidateJobApplicationResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.dto.candidate.response.StatusResponse;
 import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -210,7 +212,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
     }
 
     @Override
-    public JobApplicationResponse getMyApplicationById(Long userId, Long applicationId) {
+    public CandidateJobApplicationResponse getMyApplicationById(Long userId, Long applicationId) {
         Candidate candidate = candidateRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
 
@@ -222,7 +224,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .findByIdAndCandidateId(applicationId, candidate.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found with id: " + applicationId));
 
-        return mapToApplicationResponse(application);
+        return mapToCandidateJobApplicationResponse(application);
     }
 
     @Override
@@ -407,6 +409,64 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .rejectionReason(entity.getRejectionReason())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private CandidateJobApplicationResponse mapToCandidateJobApplicationResponse(JobApplication entity) {
+        Candidate candidate = entity.getCandidate();
+
+        // Get all documents for this candidate
+        List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+        // Map documents to DocumentInfo
+        List<CandidateJobApplicationResponse.DocumentInfo> documentInfos = documents.stream()
+                .map(doc -> CandidateJobApplicationResponse.DocumentInfo.builder()
+                        .id(doc.getId())
+                        .documentType(doc.getDocumentType().name())
+                        .documentName(doc.getDocumentName())
+                        .status(doc.getStatus() != null ? doc.getStatus().name() : "PENDING")
+                        .rejectionReason(doc.getRejectionReason())
+                        .uploadedAt(doc.getUploadedAt() != null ?
+                                doc.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                        .build())
+                .collect(Collectors.toList());
+
+        // Create document status map
+        Map<String, String> documentStatuses = documents.stream()
+                .collect(Collectors.toMap(
+                        doc -> doc.getDocumentType().name(),
+                        doc -> doc.getStatus() != null ? doc.getStatus().name() : "PENDING",
+                        (existing, replacement) -> existing
+                ));
+
+        // Check if all documents are approved
+        boolean allDocumentsApproved = documents.stream()
+                .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+
+        return CandidateJobApplicationResponse.builder()
+                .id(entity.getId())
+                .jobDemandId(entity.getJobDemand().getId())
+                .jobTitle(entity.getJobDemand().getTitle())
+                .country(entity.getJobDemand().getCountry() != null ?
+                        entity.getJobDemand().getCountry().getName() : null)
+                .city(entity.getJobDemand().getCity())
+                .salaryAmount(entity.getJobDemand().getSalaryAmount())
+                .salaryCurrency(entity.getJobDemand().getSalaryCurrency())
+                .candidateId(candidate.getId())
+                .candidateName(candidate.getFullName())
+                .candidateTrade(candidate.getTrade())
+                .notes(entity.getNotes())
+                .status(entity.getStatus().name())
+                .appliedAt(entity.getAppliedAt() != null ?
+                        entity.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null)
+                .rejectionReason(entity.getRejectionReason())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .documents(documentInfos)
+                .documentStatuses(documentStatuses)
+                .allDocumentsApproved(allDocumentsApproved)
+                .isProfileComplete(candidate.isProfileComplete())
+                .isEnabled(candidate.getIsEnabled())
                 .build();
     }
 }

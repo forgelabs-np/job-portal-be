@@ -31,7 +31,7 @@ import java.util.List;
 @RequestMapping("/api/agency/candidates")
 @PreAuthorize("hasRole('AGENCY')")
 @Tag(name = "Agency - Candidates", description = "Agency Candidate Management APIs")
-public class CandidateController {
+public class CandidateAgencyController {
 
     private final CandidateService candidateService;
 

@@ -8,10 +8,7 @@ import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
 import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.dto.candidate.response.StatusResponse;
 import com.jobportal.v1.entity.*;
-import com.jobportal.v1.enums.CandidateType;
-import com.jobportal.v1.enums.CreatedByType;
-import com.jobportal.v1.enums.DocumentType;
-import com.jobportal.v1.enums.RoleEnum;
+import com.jobportal.v1.enums.*;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
@@ -144,6 +141,12 @@ public class CandidateServiceImpl implements CandidateService {
                 document.setDocumentPath(filePath);
                 document.setNotes(null);
                 document.setUploadedAt(java.time.LocalDateTime.now());
+
+                //Reset status to PENDING on re-upload
+                document.setStatus(ApprovalStatus.PENDING);
+                document.setRejectionReason(null);
+                document.setVerifiedBy(null);
+                document.setVerifiedAt(null);
 
                 log.info("Document re-uploaded for agency candidate: {}, type: {}", candidateId, documentType);
             } else {

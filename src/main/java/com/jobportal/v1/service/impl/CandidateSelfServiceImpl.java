@@ -149,6 +149,12 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 document.setNotes(null);
                 document.setUploadedAt(LocalDateTime.now());
 
+                // Reset status to PENDING on re-upload
+                document.setStatus(ApprovalStatus.PENDING);
+                document.setRejectionReason(null);
+                document.setVerifiedBy(null);
+                document.setVerifiedAt(null);
+
                 log.info("Document re-uploaded for candidate: {}, type: {}", userId, validatedDocType);
             } else {
                 filePath = fileUploadUtil.uploadSelfCandidateDocument(candidate.getId(), validatedDocType.name(), file);

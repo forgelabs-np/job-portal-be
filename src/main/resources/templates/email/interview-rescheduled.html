@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Rescheduled</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .alert-box {
+            background: #DBEAFE;
+            border-left: 4px solid #3B82F6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .old-details {
+            background: #F3F4F6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-decoration: line-through;
+            color: #6B7280;
+        }
+        .new-details {
+            background: #ECFDF5;
+            border: 2px solid #10B981;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            padding: 8px 0;
+        }
+        .detail-label {
+            width: 120px;
+            font-weight: 600;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+        .footer {
+            background: #f8fafc;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔄 Interview Rescheduled</h1>
+        <p>Your interview time has been updated</p>
+    </div>
+    <div class="content">
+        <h2>Dear <span th:text="${recipientName}">Candidate</span>,</h2>
+
+        <div class="alert-box">
+            ⚠️ Your interview for <strong th:text="${jobTitle}">Job Title</strong> has been <strong>rescheduled</strong>.
+            Please review the new details below.
+        </div>
+
+        <div class="old-details">
+            <strong>❌ Previous Details:</strong><br>
+            <span th:text="${oldDate}">Monday, January 15, 2024</span> at <span th:text="${oldTime}">10:30 AM</span>
+        </div>
+
+        <div class="new-details">
+            <strong>✅ New Details:</strong>
+            <div class="detail-row">
+                <div class="detail-label">Date:</div>
+                <div th:text="${#temporals.format(scheduledAt, 'EEEE, MMMM d, yyyy')}">Wednesday, January 17, 2024</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Time:</div>
+                <div>
+                    <strong th:text="${#temporals.format(scheduledAt, 'h:mm a')}">2:00 PM</strong>
+                    <span th:text="${timezone}">(Asia/Kathmandu)</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Link:</div>
+                <div>
+                    <a th:href="${interviewLink}" th:text="${interviewLink}" target="_blank">Interview Link</a>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a th:href="${dashboardLink}" class="button">View Updated Schedule</a>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #6B7280;">
+            We apologize for any inconvenience. If this new time doesn't work, please contact us at <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@jobportal.com</a>
+        </p>
+    </div>
+    <div class="footer">
+        <p>© <span th:text="${currentYear}">2024</span> JobPortal. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

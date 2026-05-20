@@ -149,6 +149,12 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 document.setNotes(null);
                 document.setUploadedAt(LocalDateTime.now());
 
+                // Reset status to PENDING on re-upload
+                document.setStatus(ApprovalStatus.PENDING);
+                document.setRejectionReason(null);
+                document.setVerifiedBy(null);
+                document.setVerifiedAt(null);
+
                 log.info("Document re-uploaded for candidate: {}, type: {}", userId, validatedDocType);
             } else {
                 filePath = fileUploadUtil.uploadSelfCandidateDocument(candidate.getId(), validatedDocType.name(), file);
@@ -225,6 +231,28 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found with id: " + applicationId));
 
         return mapToCandidateJobApplicationResponse(application);
+    }
+
+    @Override
+    public Page<JobApplicationResponse> getMyApplications(Long userId, String status, Pageable pageable) {
+        Candidate candidate = candidateRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
+
+        Page<JobApplication> applications;
+
+        if (status != null && !status.isEmpty()) {
+            ApplicationStatus appStatus;
+            try {
+                appStatus = ApplicationStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid status. Allowed: PENDING, REVIEWED, SHORTLISTED, REJECTED, WITHDRAWN");
+            }
+            applications = jobApplicationRepository.findByCandidateIdAndStatus(candidate.getId(), appStatus, pageable);
+        } else {
+            applications = jobApplicationRepository.findByCandidateId(candidate.getId(), pageable);
+        }
+
+        return applications.map(this::mapToApplicationResponse);
     }
 
     @Override

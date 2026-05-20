@@ -1,4 +1,4 @@
-package com.jobportal.v1.dto.JobDemand.request;
+package com.jobportal.v1.dto.jobDemand.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

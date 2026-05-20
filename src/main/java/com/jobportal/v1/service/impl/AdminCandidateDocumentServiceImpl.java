@@ -43,8 +43,15 @@ public class AdminCandidateDocumentServiceImpl implements AdminCandidateDocument
     @Override
     @Transactional
     public CandidateDocumentResponse processDocumentApproval(DocumentApprovalRequest request, Long adminId) {
-        CandidateDocument document = documentRepository.findById(request.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + request.getDocumentId()));
+
+        CandidateDocument document = documentRepository.findByIdAndCandidateId(
+                        request.getDocumentId(), request.getCandidateId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Document not found with id: " + request.getDocumentId() +
+                                " for candidate: " + request.getCandidateId()));
+
+//        CandidateDocument document = documentRepository.findById(request.getDocumentId())
+//                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + request.getDocumentId()));
 
         if (request.getStatus() == ApprovalStatus.APPROVED) {
             document.setStatus(ApprovalStatus.APPROVED);

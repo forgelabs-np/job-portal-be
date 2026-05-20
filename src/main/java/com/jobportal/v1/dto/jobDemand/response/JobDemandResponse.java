@@ -1,61 +1,46 @@
-package com.jobportal.v1.dto.JobDemand.request;
+package com.jobportal.v1.dto.jobDemand.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.jobportal.v1.dto.country.response.CountryResponse;
 import com.jobportal.v1.enums.GenderPreference;
+import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.enums.SalaryPeriod;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-public class JobDemandRequest {
-
+@Builder
+public class JobDemandResponse {
     private Long id;
-
-    @NotBlank(message = "Job title is required")
     private String title;
-
-    @NotNull(message = "Country ID is required")
-    private Long countryId;
-
+    private CountryResponse country;
     private String city;
-
-    @NotBlank(message = "Description is required")
     private String description;
-
-    @NotBlank(message = "Requirements are required")
     private String requirements;
 
-    @NotNull(message = "Total slots is required")
-    @Min(value = 1, message = "Total slots must be at least 1")
     private Integer totalSlots;
+    private Integer filledSlots;
+    private Integer remainingSlots;
+    private Integer appliedCount;
 
-    private Integer filledSlots;  // Internal use only
+    private JobStatus status;
+    private Boolean isOpen;
 
-    @NotNull(message = "Salary amount is required")
-    @Min(value = 0, message = "Salary amount must be positive")
     private Double salaryAmount;
+    private String salaryCurrency;
+    private SalaryPeriod salaryPeriod;
 
-    private SalaryPeriod salaryPeriod = SalaryPeriod.MONTHLY;
-
-    @NotNull(message = "Gender preference is required")
     private GenderPreference genderPreference;
-
-    @NotNull(message = "Preferred nationalities are required")
     private List<String> preferredNationalities;
-
-    @NotNull(message = "Working hours per week is required")
-    @Min(value = 1, message = "Working hours per week must be at least 1")
-    private Integer workingHoursPerWeek;
-
-    // Optional fields
     private Integer minExperienceYears;
     private Integer maxExperienceYears;
     private String requiredSkills;
     private String educationLevel;
+    private Integer workingHoursPerWeek;
+
     private Integer contractDurationYears;
     private String overtimePolicy;
     private Boolean accommodationProvided;
@@ -72,6 +57,17 @@ public class JobDemandRequest {
     private Integer probationPeriodMonths;
     private String terminationClause;
     private String additionalBenefits;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime deadline;
-    private Boolean isPublic = false;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdAt;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updatedAt;
+
+    private Long createdBy;
+
+    private Boolean isPublic;
 }

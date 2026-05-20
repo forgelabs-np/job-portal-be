@@ -36,9 +36,12 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     Page<JobApplication> findAll(Pageable pageable);
 
     Optional<JobApplication> findByIdAndCandidateId(Long id, Long candidateId);
+
     Page<JobApplication> findByJobDemandId(Long jobDemandId, Pageable pageable);
 
     Page<JobApplication> findByStatus(ApplicationStatus status, Pageable pageable);
+
+    Page<JobApplication> findByCandidateIdAndStatus(Long candidateId, ApplicationStatus status, Pageable pageable);
 
     Page<JobApplication> findByJobDemandIdAndStatus(Long jobDemandId, ApplicationStatus status, Pageable pageable);
 

@@ -1,7 +1,7 @@
 package com.jobportal.v1.service;
 
-import com.jobportal.v1.dto.JobDemand.request.JobDemandRequest;
-import com.jobportal.v1.dto.JobDemand.response.JobDemandResponse;
+import com.jobportal.v1.dto.jobDemand.request.JobDemandRequest;
+import com.jobportal.v1.dto.jobDemand.response.JobDemandResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 

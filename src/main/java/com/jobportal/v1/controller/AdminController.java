@@ -2,13 +2,12 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
-import com.jobportal.v1.dto.JobDemand.request.JobAgencyAssignmentRequest;
-import com.jobportal.v1.dto.JobDemand.response.JobAgencyAssignmentResponse;
+import com.jobportal.v1.dto.jobDemand.request.JobAgencyAssignmentRequest;
+import com.jobportal.v1.dto.jobDemand.response.JobAgencyAssignmentResponse;
 import com.jobportal.v1.dto.admin.response.AdminDashboardResponse;
 import com.jobportal.v1.dto.agency.request.AgencyActionRequest;
 import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
-import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminService;

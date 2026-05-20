@@ -9,6 +9,9 @@ public class DocumentApprovalRequest {
     @NotNull(message = "Document ID is required")
     private Long documentId;
 
+    @NotNull(message = "CandidateID is required")
+    private Long candidateId;
+
     @NotNull(message = "Status is required")
     private ApprovalStatus status;
 

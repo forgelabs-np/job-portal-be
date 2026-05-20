@@ -66,6 +66,17 @@ public class JobApplicationServiceImpl implements JobApplicationService {
             throw new BadRequestException("Candidate is disabled. Please enable candidate first.");
         }
 
+        // Check if candidate documents are approved before applying
+        if (candidate.isAgencyManaged()) {
+            List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+            boolean hasRejectedDocuments = documents.stream()
+                    .anyMatch(doc -> doc.getStatus() == ApprovalStatus.REJECTED);
+
+            if (hasRejectedDocuments) {
+                throw new BadRequestException("Cannot apply for job. Candidate has rejected documents. Please fix rejected documents first.");
+            }
+        }
+
         // Check for existing application
         Optional<JobApplication> existingApplication = jobApplicationRepository
                 .findByJobDemandIdAndCandidateId(request.getJobDemandId(), request.getCandidateId());
@@ -212,12 +223,32 @@ public class JobApplicationServiceImpl implements JobApplicationService {
             throw new BadRequestException("Rejection reason is required when rejecting an application");
         }
 
+        // Check if all documents are approved before SHORTLISTING (for agency candidates)
+        if (request.getStatus() == ApplicationStatus.SHORTLISTED) {
+            Candidate candidate = application.getCandidate();
+            List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+            boolean allDocumentsApproved = !documents.isEmpty() && documents.stream()
+                    .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+
+            if (!allDocumentsApproved) {
+                long pendingCount = documents.stream()
+                        .filter(doc -> doc.getStatus() == ApprovalStatus.PENDING).count();
+                long rejectedCount = documents.stream()
+                        .filter(doc -> doc.getStatus() == ApprovalStatus.REJECTED).count();
+
+                String message = String.format(
+                        "Cannot shortlist candidate. Document status - Pending: %d, Rejected: %d. Please ensure all documents are approved first.",
+                        pendingCount, rejectedCount);
+                throw new BadRequestException(message);
+            }
+        }
+
         application.setStatus(request.getStatus());
         application.setReviewedBy(adminId);
         application.setReviewedAt(LocalDateTime.now());
         application.setRejectionReason(request.getRejectionReason());
 
-        // If shortlisted, increment filled slots in job demand
         if (request.getStatus() == ApplicationStatus.SHORTLISTED) {
             application.getJobDemand().incrementFilledSlots();
             jobDemandRepository.save(application.getJobDemand());
@@ -274,7 +305,6 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         JobApplication application = jobApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
 
-        // Verify it's a self-candidate application
         if (application.getAgency() != null) {
             throw new BadRequestException("This is not a self-candidate application. Use agency application endpoint.");
         }
@@ -282,6 +312,27 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         if (request.getStatus() == ApplicationStatus.REJECTED &&
                 (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty())) {
             throw new BadRequestException("Rejection reason is required when rejecting an application");
+        }
+
+        // Check if all documents are approved before SHORTLISTING
+        if (request.getStatus() == ApplicationStatus.SHORTLISTED) {
+            Candidate candidate = application.getCandidate();
+            List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+            boolean allDocumentsApproved = !documents.isEmpty() && documents.stream()
+                    .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+
+            if (!allDocumentsApproved) {
+                long pendingCount = documents.stream()
+                        .filter(doc -> doc.getStatus() == ApprovalStatus.PENDING).count();
+                long rejectedCount = documents.stream()
+                        .filter(doc -> doc.getStatus() == ApprovalStatus.REJECTED).count();
+
+                String message = String.format(
+                        "Cannot shortlist candidate. Document status - Pending: %d, Rejected: %d. Please ensure all documents are approved first.",
+                        pendingCount, rejectedCount);
+                throw new BadRequestException(message);
+            }
         }
 
         application.setStatus(request.getStatus());

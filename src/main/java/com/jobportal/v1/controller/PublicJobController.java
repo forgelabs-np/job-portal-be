@@ -1,7 +1,7 @@
 package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiResponse;
-import com.jobportal.v1.dto.JobDemand.response.JobDemandResponse;
+import com.jobportal.v1.dto.jobDemand.response.JobDemandResponse;
 import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.country.response.CountryResponse;
 import com.jobportal.v1.entity.JobDemand;

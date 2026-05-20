@@ -82,3 +82,11 @@ file:
     base-dir: uploads
     max-file-size: 5242880  # 5MB in bytes
     allowed-extensions: png,jpg,jpeg,pdf,doc,docx
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.jobportal.v1.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30

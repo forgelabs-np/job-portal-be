@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Reminder</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .countdown-box {
+            background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+        }
+        .countdown-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #92400E;
+        }
+        .interview-details {
+            background: #F3F4F6;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .detail-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            width: 120px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .detail-value {
+            flex: 1;
+            color: #111827;
+        }
+        .online-link {
+            background: #E0E7FF;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .online-link a {
+            color: #4F46E5;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .checklist {
+            background: #ECFDF5;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+        }
+        .checklist h4 {
+            margin: 0 0 10px;
+            color: #065F46;
+        }
+        .checklist ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .checklist li {
+            margin: 8px 0;
+            color: #064E3B;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+        .footer {
+            background: #f8fafc;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>⏰ Interview Tomorrow!</h1>
+        <p>Your interview is scheduled for tomorrow</p>
+    </div>
+    <div class="content">
+        <h2>Dear <span th:text="${recipientName}">Candidate</span>,</h2>
+
+        <p>This is a friendly reminder that your interview for <strong th:text="${jobTitle}">Job Title</strong> is scheduled for <strong>tomorrow</strong>.</p>
+
+        <div class="countdown-box">
+            <div class="countdown-number">Less than 24 hours</div>
+            <p style="margin: 0; color: #92400E;">Please prepare accordingly</p>
+        </div>
+
+        <div class="interview-details">
+            <div class="detail-row">
+                <div class="detail-label">Position:</div>
+                <div class="detail-value" th:text="${jobTitle}">Software Engineer</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Date:</div>
+                <div class="detail-value" th:text="${#temporals.format(scheduledAt, 'EEEE, MMMM d, yyyy')}">Monday, January 15, 2024</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Time:</div>
+                <div class="detail-value">
+                    <strong th:text="${#temporals.format(scheduledAt, 'h:mm a')}">10:30 AM</strong>
+                    <span th:text="${timezone}">(Asia/Kathmandu)</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Type:</div>
+                <div class="detail-value">
+                    <span th:if="${interviewType == 'ONLINE'}">💻 Online Video Call</span>
+                    <span th:if="${interviewType == 'IN_PERSON'}">🏢 In-Person</span>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${interviewType == 'ONLINE'}">
+            <div class="online-link">
+                <strong>🔗 Join Link:</strong><br>
+                <a th:href="${interviewLink}" th:text="${interviewLink}" target="_blank">https://meet.jit.si/interview-123</a>
+                <p style="margin-top: 10px; font-size: 12px;">Click this link at your scheduled time to join the interview.</p>
+            </div>
+        </div>
+
+        <div class="checklist">
+            <h4>✅ Preparation Checklist</h4>
+            <ul>
+                <li th:if="${interviewType == 'ONLINE'}">Test your camera, microphone, and internet connection</li>
+                <li th:if="${interviewType == 'ONLINE'}">Ensure you're in a quiet, well-lit room</li>
+                <li th:if="${interviewType == 'IN_PERSON'}">Plan your route and arrive 10 minutes early</li>
+                <li>Review the job description and requirements</li>
+                <li>Have your resume and portfolio ready</li>
+                <li>Prepare questions for the interviewer</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <a th:href="${dashboardLink}" class="button">Go to Dashboard</a>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #6B7280;">
+            Good luck with your interview! 🍀
+        </p>
+    </div>
+    <div class="footer">
+        <p>© <span th:text="${currentYear}">2024</span> JobPortal. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

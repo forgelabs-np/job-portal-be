@@ -234,6 +234,28 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
     }
 
     @Override
+    public Page<JobApplicationResponse> getMyApplications(Long userId, String status, Pageable pageable) {
+        Candidate candidate = candidateRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
+
+        Page<JobApplication> applications;
+
+        if (status != null && !status.isEmpty()) {
+            ApplicationStatus appStatus;
+            try {
+                appStatus = ApplicationStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid status. Allowed: PENDING, REVIEWED, SHORTLISTED, REJECTED, WITHDRAWN");
+            }
+            applications = jobApplicationRepository.findByCandidateIdAndStatus(candidate.getId(), appStatus, pageable);
+        } else {
+            applications = jobApplicationRepository.findByCandidateId(candidate.getId(), pageable);
+        }
+
+        return applications.map(this::mapToApplicationResponse);
+    }
+
+    @Override
     @Transactional
     public JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes) {
         Candidate candidate = candidateRepository.findByUserId(userId)

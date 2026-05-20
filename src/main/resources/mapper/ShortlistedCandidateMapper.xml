@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jobportal.v1.mapper.ShortlistedCandidateMapper">
+
+    <!-- Result Map for Minimal Info (List View) -->
+    <resultMap id="ShortlistedCandidateMinimal" type="com.jobportal.v1.dto.candidate.response.ShortlistedCandidateMinimalResponse">
+    <result property="applicationId" column="application_id"/>
+        <result property="jobDemandId" column="job_demand_id"/>
+        <result property="jobTitle" column="job_title"/>
+        <result property="jobCountry" column="job_country"/>
+        <result property="jobCity" column="job_city"/>
+        <result property="candidateId" column="candidate_id"/>
+        <result property="candidateName" column="candidate_name"/>
+        <result property="candidateTrade" column="candidate_trade"/>
+        <result property="candidateType" column="candidate_type"/>
+        <result property="agencyId" column="agency_id"/>
+        <result property="agencyName" column="agency_name"/>
+        <result property="status" column="status"/>
+        <result property="appliedAt" column="applied_at"/>
+        <result property="shortlistedAt" column="shortlisted_at"/>
+        <result property="interviewScheduledAt" column="interview_scheduled_at"/>
+        <result property="interviewStatus" column="interview_status"/>
+    </resultMap>
+
+    <!-- Result Map for Full Details (Detail View) -->
+    <resultMap id="ShortlistedCandidateFull" type="com.jobportal.v1.dto.candidate.response.ShortlistedCandidateFullResponse">
+        <!-- Application Info -->
+        <result property="applicationId" column="application_id"/>
+        <result property="applicationStatus" column="application_status"/>
+        <result property="appliedAt" column="applied_at"/>
+        <result property="shortlistedAt" column="shortlisted_at"/>
+        <result property="shortlistedBy" column="shortlisted_by"/>
+        <result property="reviewedBy" column="reviewed_by"/>
+        <result property="reviewedAt" column="reviewed_at"/>
+        <result property="rejectionReason" column="rejection_reason"/>
+
+        <!-- Job Info -->
+        <result property="jobDemandId" column="job_demand_id"/>
+        <result property="jobTitle" column="job_title"/>
+        <result property="jobCountry" column="job_country"/>
+        <result property="jobCity" column="job_city"/>
+        <result property="jobDescription" column="job_description"/>
+        <result property="jobRequirements" column="job_requirements"/>
+        <result property="salaryAmount" column="salary_amount"/>
+        <result property="salaryCurrency" column="salary_currency"/>
+        <result property="totalSlots" column="total_slots"/>
+        <result property="remainingSlots" column="remaining_slots"/>
+
+        <!-- Candidate Info -->
+        <result property="candidateId" column="candidate_id"/>
+        <result property="candidateName" column="candidate_name"/>
+        <result property="candidateTrade" column="candidate_trade"/>
+        <result property="candidateType" column="candidate_type"/>
+        <result property="candidateEmail" column="candidate_email"/>
+        <result property="candidatePhone" column="candidate_phone"/>
+        <result property="candidatePassportNumber" column="candidate_passport_number"/>
+        <result property="candidateDateOfBirth" column="candidate_dob"/>
+        <result property="candidateMaritalStatus" column="candidate_marital_status"/>
+        <result property="isProfileComplete" column="is_profile_complete"/>
+        <result property="isEnabled" column="is_enabled"/>
+        <result property="onboardingStage" column="onboarding_stage"/>
+
+        <!-- Agency Info -->
+        <result property="agencyId" column="agency_id"/>
+        <result property="agencyName" column="agency_name"/>
+        <result property="agencyEmail" column="agency_email"/>
+        <result property="agencyPhone" column="agency_phone"/>
+
+        <!-- Interview Info -->
+        <result property="interviewId" column="interview_id"/>
+        <result property="interviewScheduledAt" column="interview_scheduled_at"/>
+        <result property="interviewStatus" column="interview_status"/>
+        <result property="interviewLink" column="interview_link"/>
+        <result property="interviewType" column="interview_type"/>
+        <result property="interviewVenue" column="interview_venue"/>
+        <result property="interviewResult" column="interview_result"/>
+        <result property="interviewResultNotes" column="interview_result_notes"/>
+
+        <!-- Documents Collection -->
+        <collection property="documents" ofType="com.jobportal.v1.dto.candidate.response.DocumentInfoResponse">
+            <result property="id" column="document_id"/>
+            <result property="documentType" column="document_type"/>
+            <result property="documentName" column="document_name"/>
+            <result property="documentPath" column="document_path"/>
+            <result property="status" column="document_status"/>
+            <result property="rejectionReason" column="document_rejection_reason"/>
+            <result property="uploadedAt" column="document_uploaded_at"/>
+        </collection>
+    </resultMap>
+
+    <!-- Query 1: Minimal Info for List View (SUPER FAST) -->
+    <select id="getShortlistedCandidatesMinimal" resultMap="ShortlistedCandidateMinimal">
+        SELECT
+        ja.id AS application_id,
+        ja.job_demand_id,
+        jd.title AS job_title,
+        ctry.name AS job_country,
+        jd.city AS job_city,
+        c.id AS candidate_id,
+        CONCAT(c.first_name, ' ', c.last_name) AS candidate_name,
+        c.trade AS candidate_trade,
+        c.candidate_type,
+        a.id AS agency_id,
+        a.full_name AS agency_name,
+        ja.status,
+        ja.applied_at,
+        ja.updated_at AS shortlisted_at,
+        i.scheduled_at AS interview_scheduled_at,
+        i.status AS interview_status
+        FROM job_applications ja
+        INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+        INNER JOIN candidates c ON ja.candidate_id = c.id
+        LEFT JOIN countries ctry ON jd.country_id = ctry.id
+        LEFT JOIN users a ON c.agency_id = a.id
+        LEFT JOIN interviews i ON ja.id = i.job_application_id
+        WHERE ja.status = 'SHORTLISTED'
+        <if test="applicationType != null and applicationType != ''">
+            <choose>
+                <when test="applicationType == 'SELF'">
+                    AND c.candidate_type = 'SELF_REGISTERED'
+                </when>
+                <when test="applicationType == 'AGENCY'">
+                    AND c.candidate_type = 'AGENCY_MANAGED'
+                </when>
+            </choose>
+        </if>
+        ORDER BY ja.updated_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- Query 1 Count -->
+    <select id="countShortlistedCandidates" resultType="long">
+        SELECT COUNT(*)
+        FROM job_applications ja
+        INNER JOIN candidates c ON ja.candidate_id = c.id
+        WHERE ja.status = 'SHORTLISTED'
+        <if test="applicationType != null and applicationType != ''">
+            <choose>
+                <when test="applicationType == 'SELF'">
+                    AND c.candidate_type = 'SELF_REGISTERED'
+                </when>
+                <when test="applicationType == 'AGENCY'">
+                    AND c.candidate_type = 'AGENCY_MANAGED'
+                </when>
+            </choose>
+        </if>
+    </select>
+
+    <!-- Query 2: Full Details for Detail View -->
+    <select id="getShortlistedCandidateFull" resultMap="ShortlistedCandidateFull">
+        SELECT
+            ja.id AS application_id,
+            ja.status AS application_status,
+            ja.applied_at,
+            ja.updated_at AS shortlisted_at,
+            ja.reviewed_by AS shortlisted_by,
+            ja.reviewed_by,
+            ja.reviewed_at,
+            ja.rejection_reason,
+
+            jd.id AS job_demand_id,
+            jd.title AS job_title,
+            ctry.name AS job_country,
+            jd.city AS job_city,
+            jd.description AS job_description,
+            jd.requirements AS job_requirements,
+            jd.salary_amount,
+            jd.salary_currency,
+            jd.total_slots,
+            jd.remaining_slots,
+
+            c.id AS candidate_id,
+            CONCAT(c.first_name, ' ', c.last_name) AS candidate_name,
+            c.trade AS candidate_trade,
+            c.candidate_type,
+            u.email AS candidate_email,
+            u.phone_number AS candidate_phone,
+            c.passport_number AS candidate_passport_number,
+            c.date_of_birth AS candidate_dob,
+            c.marital_status AS candidate_marital_status,
+            c.profile_complete AS is_profile_complete,
+            c.is_enabled,
+            c.onboarding_stage,
+
+            a.id AS agency_id,
+            a.full_name AS agency_name,
+            a.email AS agency_email,
+            a.phone_number AS agency_phone,
+
+            i.id AS interview_id,
+            i.scheduled_at AS interview_scheduled_at,
+            i.status AS interview_status,
+            i.interview_link,
+            i.interview_type,
+            i.venue AS interview_venue,
+            i.result AS interview_result,
+            i.result_notes AS interview_result_notes,
+
+            doc.id AS document_id,
+            doc.document_type,
+            doc.document_name,
+            doc.document_path,
+            doc.status AS document_status,
+            doc.rejection_reason AS document_rejection_reason,
+            doc.uploaded_at AS document_uploaded_at
+
+        FROM job_applications ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+                 INNER JOIN candidates c ON ja.candidate_id = c.id
+                 INNER JOIN users u ON c.user_id = u.id
+                 LEFT JOIN countries ctry ON jd.country_id = ctry.id
+                 LEFT JOIN users a ON c.agency_id = a.id
+                 LEFT JOIN interviews i ON ja.id = i.job_application_id
+                 LEFT JOIN candidate_documents doc ON c.id = doc.candidate_id
+        WHERE ja.id = #{applicationId} AND ja.status = 'SHORTLISTED'
+    </select>
+
+    <!-- Query: Count shortlisted candidates for a specific agency -->
+    <select id="countShortlistedCandidatesForAgency" resultType="long">
+        SELECT COUNT(*)
+        FROM job_applications ja
+                 INNER JOIN candidates c ON ja.candidate_id = c.id
+        WHERE ja.status = 'SHORTLISTED'
+          AND c.candidate_type = 'AGENCY_MANAGED'
+          AND c.agency_id = #{agencyId}
+    </select>
+
+    <!-- Query: Get shortlisted candidates for a specific agency -->
+    <select id="getShortlistedCandidatesForAgency" resultMap="ShortlistedCandidateMinimal">
+        SELECT
+            ja.id AS application_id,
+            ja.job_demand_id,
+            jd.title AS job_title,
+            ctry.name AS job_country,
+            jd.city AS job_city,
+            c.id AS candidate_id,
+            CONCAT(c.first_name, ' ', c.last_name) AS candidate_name,
+            c.trade AS candidate_trade,
+            c.candidate_type,
+            a.id AS agency_id,
+            a.full_name AS agency_name,
+            ja.status,
+            ja.applied_at,
+            ja.updated_at AS shortlisted_at,
+            i.scheduled_at AS interview_scheduled_at,
+            i.status AS interview_status
+        FROM job_applications ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+                 INNER JOIN candidates c ON ja.candidate_id = c.id
+                 LEFT JOIN countries ctry ON jd.country_id = ctry.id
+                 LEFT JOIN users a ON c.agency_id = a.id
+                 LEFT JOIN interviews i ON ja.id = i.job_application_id
+        WHERE ja.status = 'SHORTLISTED'
+          AND c.candidate_type = 'AGENCY_MANAGED'
+          AND c.agency_id = #{agencyId}
+        ORDER BY ja.updated_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

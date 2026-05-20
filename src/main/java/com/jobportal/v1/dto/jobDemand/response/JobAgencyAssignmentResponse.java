@@ -1,4 +1,4 @@
-package com.jobportal.v1.dto.JobDemand.response;
+package com.jobportal.v1.dto.jobDemand.response;
 
 import lombok.Builder;
 import lombok.Data;

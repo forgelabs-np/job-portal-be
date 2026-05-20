@@ -28,6 +28,8 @@ public interface CandidateSelfService {
     // Job applications
     Page<JobApplicationResponse> getMyApplications(Long userId, Pageable pageable);
 
+    Page<JobApplicationResponse> getMyApplications(Long userId, String status, Pageable pageable);
+
     CandidateJobApplicationResponse getMyApplicationById(Long userId, Long applicationId);
 
     JobApplicationResponse applyForJob(Long userId, Long jobDemandId, String notes);

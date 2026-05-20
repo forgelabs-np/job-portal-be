@@ -142,4 +142,18 @@ public class CandidateSelfController {
         JobApplicationResponse response = candidateSelfService.withdrawApplication(candidate.getId(), applicationId);
         return ResponseEntity.ok(ApiResponse.success("Application withdrawn successfully", response));
     }
+
+    @Operation(summary = "Get My Shortlisted Applications",
+            description = "Get all SHORTLISTED applications for the logged-in candidate")
+    @GetMapping("/applications/shortlisted")
+    public ResponseEntity<ApiResponse<PageRes<JobApplicationResponse>>> getMyShortlistedApplications(
+            @PageableDefault(size = 20) Pageable pageable,
+            @CurrentUser UserPrincipal candidate) {
+
+        Page<JobApplicationResponse> applications = candidateSelfService.getMyApplications(
+                candidate.getId(), "SHORTLISTED", pageable);
+        PageRes<JobApplicationResponse> response = Pages.of(applications);
+
+        return ResponseEntity.ok(ApiResponse.success("Shortlisted applications retrieved", response));
+    }
 }

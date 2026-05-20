@@ -1,6 +1,7 @@
 package com.jobportal.v1.service.impl;
 
-import com.jobportal.v1.entity.User;
+import com.jobportal.v1.entity.*;
+import com.jobportal.v1.enums.InterviewType;
 import com.jobportal.v1.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -180,6 +181,192 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send password reset email: {}", e.getMessage());
             throw new RuntimeException("Failed to send password reset email", e);
+        }
+    }
+
+    @Override
+    public void sendInterviewScheduledEmail(Interview interview) {
+        try {
+            Candidate candidate = interview.getCandidate();
+            JobApplication application = interview.getJobApplication();
+            JobDemand job = application.getJobDemand();
+
+            String recipientEmail;
+            String recipientName;
+
+            if (candidate.isSelfRegistered()) {
+                recipientEmail = candidate.getUser().getEmail();
+                recipientName = candidate.getFullName();
+            } else {
+                recipientEmail = candidate.getAgency().getEmail();
+                recipientName = candidate.getAgency().getFullName() + " (Agency for " + candidate.getFullName() + ")";
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(recipientEmail);
+            helper.setSubject("Interview Scheduled - " + job.getTitle());
+
+            Context context = new Context();
+            context.setVariable("recipientName", recipientName);
+            context.setVariable("jobTitle", job.getTitle());
+            context.setVariable("candidateName", candidate.getFullName());
+            context.setVariable("scheduledAt", interview.getScheduledAt());
+            context.setVariable("timezone", interview.getTimezone());
+            context.setVariable("interviewType", interview.getInterviewType().name());
+            context.setVariable("interviewLink", interview.getInterviewLink());
+            context.setVariable("venue", interview.getVenue());
+            context.setVariable("adminNotes", interview.getAdminNotes());
+            context.setVariable("dashboardLink", frontendUrl + "/candidate/applications");
+            context.setVariable("supportEmail", supportEmail);
+            context.setVariable("currentYear", LocalDateTime.now().getYear());
+
+            String htmlContent = templateEngine.process("email/interview-scheduled", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Interview scheduled email sent to: {}", recipientEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send interview scheduled email: {}", e.getMessage());
+            throw new RuntimeException("Failed to send interview scheduled email", e);
+        }
+    }
+
+    @Override
+    public void sendInterviewReminder(Interview interview) {
+        try {
+            Candidate candidate = interview.getCandidate();
+            JobApplication application = interview.getJobApplication();
+            JobDemand job = application.getJobDemand();
+
+            String recipientEmail;
+            String recipientName;
+
+            if (candidate.isSelfRegistered()) {
+                recipientEmail = candidate.getUser().getEmail();
+                recipientName = candidate.getFullName();
+            } else {
+                recipientEmail = candidate.getAgency().getEmail();
+                recipientName = candidate.getAgency().getFullName() + " (Agency for " + candidate.getFullName() + ")";
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(recipientEmail);
+            helper.setSubject("Reminder: Interview Tomorrow - " + job.getTitle());
+
+            Context context = new Context();
+            context.setVariable("recipientName", recipientName);
+            context.setVariable("jobTitle", job.getTitle());
+            context.setVariable("scheduledAt", interview.getScheduledAt());
+            context.setVariable("timezone", interview.getTimezone());
+            context.setVariable("interviewType", interview.getInterviewType().name());
+            context.setVariable("interviewLink", interview.getInterviewLink());
+            context.setVariable("dashboardLink", frontendUrl + "/candidate/applications");
+            context.setVariable("currentYear", LocalDateTime.now().getYear());
+
+            String htmlContent = templateEngine.process("email/interview-reminder", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Interview reminder email sent to: {}", recipientEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send interview reminder email: {}", e.getMessage());
+            // Don't throw - reminder failure shouldn't break the flow
+        }
+    }
+
+    @Override
+    public void sendInterviewRescheduledEmail(Interview interview) {
+        try {
+            Candidate candidate = interview.getCandidate();
+            JobApplication application = interview.getJobApplication();
+            JobDemand job = application.getJobDemand();
+
+            String recipientEmail;
+            String recipientName;
+
+            if (candidate.isSelfRegistered()) {
+                recipientEmail = candidate.getUser().getEmail();
+                recipientName = candidate.getFullName();
+            } else {
+                recipientEmail = candidate.getAgency().getEmail();
+                recipientName = candidate.getAgency().getFullName() + " (Agency for " + candidate.getFullName() + ")";
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(recipientEmail);
+            helper.setSubject("Interview Rescheduled - " + job.getTitle());
+
+            Context context = new Context();
+            context.setVariable("recipientName", recipientName);
+            context.setVariable("jobTitle", job.getTitle());
+            context.setVariable("scheduledAt", interview.getScheduledAt());
+            context.setVariable("timezone", interview.getTimezone());
+            context.setVariable("interviewLink", interview.getInterviewLink());
+            context.setVariable("dashboardLink", frontendUrl + "/candidate/applications");
+            context.setVariable("supportEmail", supportEmail);
+            context.setVariable("currentYear", LocalDateTime.now().getYear());
+
+            String htmlContent = templateEngine.process("email/interview-rescheduled", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Interview rescheduled email sent to: {}", recipientEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send interview rescheduled email: {}", e.getMessage());
+            throw new RuntimeException("Failed to send interview rescheduled email", e);
+        }
+    }
+
+    @Override
+    public void sendInterviewCancelledEmail(Interview interview) {
+        try {
+            Candidate candidate = interview.getCandidate();
+            JobApplication application = interview.getJobApplication();
+            JobDemand job = application.getJobDemand();
+
+            String recipientEmail;
+            String recipientName;
+
+            if (candidate.isSelfRegistered()) {
+                recipientEmail = candidate.getUser().getEmail();
+                recipientName = candidate.getFullName();
+            } else {
+                recipientEmail = candidate.getAgency().getEmail();
+                recipientName = candidate.getAgency().getFullName() + " (Agency for " + candidate.getFullName() + ")";
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(recipientEmail);
+            helper.setSubject("Interview Cancelled - " + job.getTitle());
+
+            Context context = new Context();
+            context.setVariable("recipientName", recipientName);
+            context.setVariable("jobTitle", job.getTitle());
+            context.setVariable("scheduledAt", interview.getScheduledAt());
+            context.setVariable("dashboardLink", frontendUrl + "/candidate/applications");
+            context.setVariable("supportEmail", supportEmail);
+            context.setVariable("currentYear", LocalDateTime.now().getYear());
+
+            String htmlContent = templateEngine.process("email/interview-cancelled", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Interview cancelled email sent to: {}", recipientEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send interview cancelled email: {}", e.getMessage());
+            throw new RuntimeException("Failed to send interview cancelled email", e);
         }
     }
 

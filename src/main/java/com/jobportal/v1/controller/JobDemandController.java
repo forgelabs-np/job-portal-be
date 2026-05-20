@@ -2,8 +2,8 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
-import com.jobportal.v1.dto.JobDemand.request.JobDemandRequest;
-import com.jobportal.v1.dto.JobDemand.response.JobDemandResponse;
+import com.jobportal.v1.dto.jobDemand.request.JobDemandRequest;
+import com.jobportal.v1.dto.jobDemand.response.JobDemandResponse;
 import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;

@@ -1,7 +1,7 @@
 package com.jobportal.v1.service.impl;
 
-import com.jobportal.v1.dto.JobDemand.request.JobAgencyAssignmentRequest;
-import com.jobportal.v1.dto.JobDemand.response.JobAgencyAssignmentResponse;
+import com.jobportal.v1.dto.jobDemand.request.JobAgencyAssignmentRequest;
+import com.jobportal.v1.dto.jobDemand.response.JobAgencyAssignmentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobResponse;
 import com.jobportal.v1.dto.country.response.CountryResponse;

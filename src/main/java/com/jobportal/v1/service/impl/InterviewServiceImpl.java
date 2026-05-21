@@ -173,6 +173,12 @@ public class InterviewServiceImpl implements InterviewService {
         interview.setResultUpdatedBy(adminId);
         interview.setResultUpdatedAt(LocalDateTime.now());
 
+        if (request.getResult() == InterviewResult.RE_INTERVIEW) {
+            interview.setStatus(InterviewStatus.SCHEDULED);
+            interview.setReminderSent(false);
+            log.info("RE_INTERVIEW selected. Interview status reset to SCHEDULED for next round. Interview: {}", interviewId);
+        }
+
         Interview saved = interviewRepository.save(interview);
         log.info("Interview result set: {} for interview: {} by admin: {}", request.getResult(), interviewId, adminId);
 

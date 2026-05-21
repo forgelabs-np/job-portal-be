@@ -1,5 +1,6 @@
 package com.jobportal.v1.service;
 
+import com.jobportal.v1.dto.admin.request.AgencyDocumentApprovalRequest;
 import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
@@ -15,7 +16,7 @@ public interface AdminAgencyService {
 
     List<AgencyDocumentResponse> getDocumentsByAgency(Long agencyId);
 
-    AgencyDocumentResponse processDocumentApproval(DocumentApprovalRequest request, Long adminId);
+    AgencyDocumentResponse processDocumentApproval(AgencyDocumentApprovalRequest request, Long adminId);
 
     // Profile Management
     List<AgencyProfileResponse> getProfilesByStatus(ApprovalStatus status);

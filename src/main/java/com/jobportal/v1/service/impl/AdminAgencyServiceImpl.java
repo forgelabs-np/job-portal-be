@@ -1,5 +1,6 @@
 package com.jobportal.v1.service.impl;
 
+import com.jobportal.v1.dto.admin.request.AgencyDocumentApprovalRequest;
 import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
@@ -54,9 +55,13 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
 
     @Override
     @Transactional
-    public AgencyDocumentResponse processDocumentApproval(DocumentApprovalRequest request, Long adminId) {
-        AgencyDocument document = agencyDocumentRepository.findById(request.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+    public AgencyDocumentResponse processDocumentApproval(AgencyDocumentApprovalRequest request, Long adminId) {
+        //Validate both documentId AND agencyId
+        AgencyDocument document = agencyDocumentRepository.findByIdAndAgencyProfileId(
+                        request.getDocumentId(), request.getAgencyId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Document not found with id: " + request.getDocumentId() +
+                                " for agency: " + request.getAgencyId()));
 
         ApprovalStatus status = request.getStatus();
 
@@ -72,11 +77,10 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
             document.setRejectionReason(request.getRejectionReason());
             log.info("Document rejected: {} by admin: {}", document.getId(), adminId);
         } else {
-            throw new BadRequestException("Invalid status. Only APPROVED or REJECTED are allowed for document processing.");
+            throw new BadRequestException("Invalid status. Only APPROVED or REJECTED are allowed.");
         }
 
         agencyDocumentRepository.save(document);
-
         return toDocumentResponse(document);
     }
 

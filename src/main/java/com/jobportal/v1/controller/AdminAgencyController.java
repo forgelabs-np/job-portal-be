@@ -2,6 +2,7 @@ package com.jobportal.v1.controller;
 
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
+import com.jobportal.v1.dto.admin.request.AgencyDocumentApprovalRequest;
 import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
@@ -47,10 +48,10 @@ public class AdminAgencyController {
         return ResponseEntity.ok(ApiResponse.success("Agency documents retrieved", response));
     }
 
-    @Operation(summary = "Process Document Approval", description = "Approve or reject a document")
+    @Operation(summary = "Process Document Approval", description = "Approve or reject an agency document")
     @PostMapping("/documents/process")
     public ResponseEntity<ApiResponse<AgencyDocumentResponse>> processDocumentApproval(
-            @Valid @RequestBody ApiRequest<DocumentApprovalRequest> request,
+            @Valid @RequestBody ApiRequest<AgencyDocumentApprovalRequest> request,  // ✅ Changed DTO
             @CurrentUser UserPrincipal admin) {
 
         AgencyDocumentResponse response = adminAgencyService.processDocumentApproval(request.getData(), admin.getId());

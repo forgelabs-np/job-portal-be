@@ -4,6 +4,7 @@ import com.jobportal.v1.dto.interview.request.InterviewRequest;
 import com.jobportal.v1.dto.interview.request.InterviewResultRequest;
 import com.jobportal.v1.dto.interview.request.InterviewUpdateRequest;
 import com.jobportal.v1.dto.interview.response.InterviewResponse;
+import com.jobportal.v1.enums.InterviewStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,6 +15,8 @@ public interface InterviewService {
     InterviewResponse getInterviewById(Long interviewId);
 
     InterviewResponse getInterviewByApplicationId(Long jobApplicationId);
+
+    InterviewResponse updateInterviewStatus(Long interviewId, InterviewStatus status, Long adminId);
 
     InterviewResponse setInterviewResult(Long interviewId, InterviewResultRequest request, Long adminId);
 

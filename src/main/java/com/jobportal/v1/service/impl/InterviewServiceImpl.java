@@ -121,6 +121,45 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     @Transactional
+    public InterviewResponse updateInterviewStatus(Long interviewId, InterviewStatus status, Long adminId) {
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Interview not found with id: " + interviewId));
+
+        // Validate status transition
+        InterviewStatus currentStatus = interview.getStatus();
+
+        if (currentStatus == InterviewStatus.CANCELLED) {
+            throw new BadRequestException("Cannot update status of a cancelled interview");
+        }
+
+        if (currentStatus == InterviewStatus.COMPLETED) {
+            throw new BadRequestException("Interview is already completed");
+        }
+
+        if (status == InterviewStatus.COMPLETED && interview.getResult() != InterviewResult.PENDING) {
+            // If marking as COMPLETED but result is already set, that's fine
+            log.info("Marking interview as COMPLETED with existing result: {}", interview.getResult());
+        }
+
+        interview.setStatus(status);
+
+        // If marking as NO_SHOW, automatically set result to FAIL
+        if (status == InterviewStatus.NO_SHOW) {
+            interview.setResult(InterviewResult.FAIL);
+            interview.setResultNotes("Candidate did not show up for interview");
+            interview.setResultUpdatedBy(adminId);
+            interview.setResultUpdatedAt(LocalDateTime.now());
+            log.info("Interview marked as NO_SHOW, result automatically set to FAIL for interview: {}", interviewId);
+        }
+
+        Interview saved = interviewRepository.save(interview);
+        log.info("Interview status updated from {} to {} by admin: {}", currentStatus, status, adminId);
+
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public InterviewResponse setInterviewResult(Long interviewId, InterviewResultRequest request, Long adminId) {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));

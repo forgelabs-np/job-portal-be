@@ -5,8 +5,8 @@ import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.interview.request.InterviewRequest;
 import com.jobportal.v1.dto.interview.request.InterviewResultRequest;
-import com.jobportal.v1.dto.interview.request.InterviewUpdateRequest;
 import com.jobportal.v1.dto.interview.response.InterviewResponse;
+import com.jobportal.v1.enums.InterviewStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.InterviewService;
@@ -82,6 +82,19 @@ public class AdminInterviewController {
 
         InterviewResponse response = interviewService.setInterviewResult(interviewId, request.getData(), admin.getId());
         String message = "Interview result set to " + request.getData().getResult();
+        return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    @Operation(summary = "Update Interview Status",
+            description = "Update interview status (SCHEDULED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW)")
+    @PatchMapping("/{interviewId}/status")
+    public ResponseEntity<ApiResponse<InterviewResponse>> updateInterviewStatus(
+            @PathVariable Long interviewId,
+            @RequestParam InterviewStatus status,
+            @CurrentUser UserPrincipal admin) {
+
+        InterviewResponse response = interviewService.updateInterviewStatus(interviewId, status, admin.getId());
+        String message = "Interview status updated to " + status;
         return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 

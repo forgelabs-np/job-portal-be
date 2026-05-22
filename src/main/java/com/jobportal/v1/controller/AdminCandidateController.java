@@ -10,6 +10,7 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.CandidateService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -40,7 +41,7 @@ public class AdminCandidateController {
         Page<AgencyCandidatesGroupResponse> response = candidateService.getAllCandidatesGroupedByAgency(pageable);
         PageRes<AgencyCandidatesGroupResponse> pageRes = Pages.of(response);
 
-        return ResponseEntity.ok(ApiResponse.success("Candidates retrieved by agency", pageRes));
+        return ResponseUtil.ok("Candidates retrieved by agency", pageRes);
     }
 
     @Operation(summary = "Update Candidate Status", description = "Admin updates candidate document statuses (PCC, SLC, Work Permit, Visa)")
@@ -51,7 +52,7 @@ public class AdminCandidateController {
             @CurrentUser UserPrincipal admin) {
 
         CandidateResponse response = candidateService.updateCandidateStatus(candidateId, request.getData(), admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Candidate status updated successfully", response));
+        return ResponseUtil.ok("Candidate status updated successfully", response);
     }
 
     @Operation(summary = "Get Self-Registered Candidates", description = "Get all self-registered candidates with pagination")
@@ -62,7 +63,7 @@ public class AdminCandidateController {
         Page<CandidateResponse> response = candidateService.getSelfRegisteredCandidates(pageable);
         PageRes<CandidateResponse> pageRes = Pages.of(response);
 
-        return ResponseEntity.ok(ApiResponse.success("Self-registered candidates retrieved", pageRes));
+        return ResponseUtil.ok("Self-registered candidates retrieved", pageRes);
     }
 
     @Operation(summary = "Toggle Candidate Status (Admin)", description = "Admin enables or disables any candidate")
@@ -72,6 +73,6 @@ public class AdminCandidateController {
 
         CandidateResponse response = candidateService.adminToggleCandidateStatus(candidateId);
         String message = response.getIsEnabled() ? "Candidate enabled successfully" : "Candidate disabled successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 }

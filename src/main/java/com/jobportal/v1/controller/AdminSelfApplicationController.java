@@ -14,6 +14,7 @@ import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminCandidateDocumentService;
 import com.jobportal.v1.service.JobApplicationService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,7 +40,6 @@ public class AdminSelfApplicationController {
     private final JobApplicationService jobApplicationService;
     private final AdminCandidateDocumentService adminCandidateDocumentService;
 
-
     @Operation(summary = "Get All Self-Candidate Applications", description = "Get all applications from self-registered candidates (lightweight list)")
     @GetMapping
     public ResponseEntity<ApiResponse<PageRes<JobApplicationResponse>>> getAllSelfApplications(
@@ -51,7 +51,7 @@ public class AdminSelfApplicationController {
                 jobDemandId, status, pageable);
         PageRes<JobApplicationResponse> response = Pages.of(applications);
 
-        return ResponseEntity.ok(ApiResponse.success("Self-candidate applications retrieved", response));
+        return ResponseUtil.ok("Self-candidate applications retrieved", response);
     }
 
     @Operation(summary = "Get Self-Application Details", description = "Get detailed application information for self-candidate application")
@@ -60,7 +60,7 @@ public class AdminSelfApplicationController {
             @PathVariable Long applicationId) {
 
         AdminSelfApplicationResponse response = jobApplicationService.getSelfApplicationDetails(applicationId);
-        return ResponseEntity.ok(ApiResponse.success("Application details retrieved", response));
+        return ResponseUtil.ok("Application details retrieved", response);
     }
 
     @Operation(summary = "Update Self-Application Status", description = "Approve, shortlist, or reject a self-candidate application")
@@ -74,7 +74,7 @@ public class AdminSelfApplicationController {
                 applicationId, request.getData(), admin.getId());
 
         String message = "Application status updated to " + request.getData().getStatus();
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     // ============ Document Verification (Similar to Agency Profile) ============
@@ -87,7 +87,7 @@ public class AdminSelfApplicationController {
         Page<CandidateDocumentResponse> response = adminCandidateDocumentService.getPendingDocuments(pageable);
         PageRes<CandidateDocumentResponse> pageRes = Pages.of(response);
 
-        return ResponseEntity.ok(ApiResponse.success("Pending documents retrieved", pageRes));
+        return ResponseUtil.ok("Pending documents retrieved", pageRes);
     }
 
     @Operation(summary = "Get Documents by Candidate", description = "Get all documents for a specific candidate")
@@ -96,7 +96,7 @@ public class AdminSelfApplicationController {
             @PathVariable Long candidateId) {
 
         List<CandidateDocumentResponse> response = adminCandidateDocumentService.getDocumentsByCandidate(candidateId);
-        return ResponseEntity.ok(ApiResponse.success("Candidate documents retrieved", response));
+        return ResponseUtil.ok("Candidate documents retrieved", response);
     }
 
     @Operation(summary = "Process Document Approval", description = "Approve or reject a candidate document")
@@ -111,13 +111,13 @@ public class AdminSelfApplicationController {
         String message = request.getData().getStatus().name().equals("APPROVED")
                 ? "Document approved successfully"
                 : "Document rejected successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Get Document Statistics", description = "Get document verification statistics")
     @GetMapping("/documents/statistics")
     public ResponseEntity<ApiResponse<DocumentVerificationStats>> getDocumentStatistics() {
         DocumentVerificationStats response = adminCandidateDocumentService.getDocumentStatistics();
-        return ResponseEntity.ok(ApiResponse.success("Statistics retrieved", response));
+        return ResponseUtil.ok("Statistics retrieved", response);
     }
 }

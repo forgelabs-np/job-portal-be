@@ -9,6 +9,7 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.JobDemandService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -40,14 +41,14 @@ public class JobDemandController {
 
         JobDemandResponse response = jobDemandService.createOrUpdateJobDemand(request.getData(), admin.getId());
         String message = request.getData().getId() == null ? "Job demand created successfully" : "Job demand updated successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Get Job Demand by ID", description = "Get detailed job demand information")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<JobDemandResponse>> getJobDemand(@PathVariable Long id) {
         JobDemandResponse response = jobDemandService.getJobDemandById(id);
-        return ResponseEntity.ok(ApiResponse.success("Job demand retrieved", response));
+        return ResponseUtil.ok("Job demand retrieved", response);
     }
 
     @Operation(summary = "Get All Job Demands", description = "Get paginated list of all job demands")
@@ -60,7 +61,7 @@ public class JobDemandController {
         Page<JobDemandResponse> jobPage = jobDemandService.getAllJobDemands(pageable);
         PageRes<JobDemandResponse> response = Pages.of(jobPage);
 
-        return ResponseEntity.ok(ApiResponse.success("Job demands retrieved", response));
+        return ResponseUtil.ok("Job demands retrieved", response);
     }
 
     @Operation(summary = "Get Job Demands by Status", description = "Get job demands filtered by status (OPEN, CLOSED, COMPLETED, CANCELLED)")
@@ -74,14 +75,14 @@ public class JobDemandController {
         Page<JobDemandResponse> jobPage = jobDemandService.getJobDemandsByStatus(status.toUpperCase(), pageable);
         PageRes<JobDemandResponse> response = Pages.of(jobPage);
 
-        return ResponseEntity.ok(ApiResponse.success("Job demands retrieved", response));
+        return ResponseUtil.ok("Job demands retrieved", response);
     }
 
     @Operation(summary = "Get Open Job Demands", description = "Get all open job demands (accepting candidates)")
     @GetMapping("/open")
     public ResponseEntity<ApiResponse<List<JobDemandResponse>>> getOpenJobDemands() {
         List<JobDemandResponse> response = jobDemandService.getOpenJobDemands();
-        return ResponseEntity.ok(ApiResponse.success("Open job demands retrieved", response));
+        return ResponseUtil.ok("Open job demands retrieved", response);
     }
 
     @Operation(summary = "Close Job Demand", description = "Close a job demand (stop accepting candidates)")
@@ -91,7 +92,7 @@ public class JobDemandController {
             @CurrentUser UserPrincipal admin) {
 
         JobDemandResponse response = jobDemandService.closeJobDemand(id, admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Job demand closed successfully", response));
+        return ResponseUtil.ok("Job demand closed successfully", response);
     }
 
     @Operation(summary = "Delete Job Demand", description = "Soft delete a job demand")
@@ -101,6 +102,6 @@ public class JobDemandController {
             @CurrentUser UserPrincipal admin) {
 
         jobDemandService.deleteJobDemand(id, admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Job demand deleted successfully", null));
+        return ResponseUtil.ok("Job demand deleted successfully");
     }
 }

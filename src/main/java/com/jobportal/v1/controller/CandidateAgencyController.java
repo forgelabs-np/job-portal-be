@@ -10,6 +10,7 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.CandidateService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,7 +44,7 @@ public class CandidateAgencyController {
 
         CandidateResponse response = candidateService.createOrUpdateCandidate(request.getData(), agency.getId());
         String message = request.getData().getId() == null ? "Candidate created successfully" : "Candidate updated successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Upload Candidate Document", description = "Upload a document for a specific candidate (only PDF, DOC, DOCX, JPG, PNG)")
@@ -55,7 +56,7 @@ public class CandidateAgencyController {
             @CurrentUser UserPrincipal agency) {
 
         CandidateDocumentResponse response = candidateService.uploadCandidateDocument(candidateId, agency.getId(), documentType, file);
-        return ResponseEntity.ok(ApiResponse.success("Document uploaded successfully", response));
+        return ResponseUtil.ok("Document uploaded successfully", response);
     }
 
     @Operation(summary = "Get Candidate Documents", description = "Get all documents for a specific candidate")
@@ -65,7 +66,7 @@ public class CandidateAgencyController {
             @CurrentUser UserPrincipal agency) {
 
         List<CandidateDocumentResponse> response = candidateService.getCandidateDocuments(candidateId, agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Documents retrieved successfully", response));
+        return ResponseUtil.ok("Documents retrieved successfully", response);
     }
 
     @Operation(summary = "Delete Candidate Document", description = "Delete a specific document from a candidate")
@@ -76,7 +77,7 @@ public class CandidateAgencyController {
             @CurrentUser UserPrincipal agency) {
 
         candidateService.deleteCandidateDocument(candidateId, agency.getId(), documentId);
-        return ResponseEntity.ok(ApiResponse.success("Document deleted successfully", null));
+        return ResponseUtil.ok("Document deleted successfully");
     }
 
     @Operation(summary = "Get Candidate by ID", description = "Get candidate details by ID")
@@ -86,7 +87,7 @@ public class CandidateAgencyController {
             @CurrentUser UserPrincipal agency) {
 
         CandidateResponse response = candidateService.getCandidateById(id, agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Candidate retrieved", response));
+        return ResponseUtil.ok("Candidate retrieved", response);
     }
 
     @Operation(summary = "Get All Candidates", description = "Get paginated list of all candidates (filter by status)")
@@ -103,7 +104,7 @@ public class CandidateAgencyController {
 
         String message = status == null ? "All candidates retrieved" :
                 (status ? "Enabled candidates retrieved" : "Disabled candidates retrieved");
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Toggle Candidate Status", description = "Enable or disable a candidate (toggles current status)")
@@ -114,7 +115,7 @@ public class CandidateAgencyController {
 
         CandidateResponse response = candidateService.toggleCandidateStatus(id, agency.getId());
         String message = response.getIsEnabled() ? "Candidate enabled successfully" : "Candidate disabled successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Delete Candidate", description = "Delete a candidate profile")
@@ -124,6 +125,6 @@ public class CandidateAgencyController {
             @CurrentUser UserPrincipal agency) {
 
         candidateService.deleteCandidate(id, agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Candidate deleted successfully", null));
+        return ResponseUtil.ok("Candidate deleted successfully");
     }
 }

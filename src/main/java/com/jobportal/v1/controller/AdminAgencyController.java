@@ -3,7 +3,6 @@ package com.jobportal.v1.controller;
 import com.jobportal.v1.dto.ApiRequest;
 import com.jobportal.v1.dto.ApiResponse;
 import com.jobportal.v1.dto.admin.request.AgencyDocumentApprovalRequest;
-import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
@@ -11,6 +10,7 @@ import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminAgencyService;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -37,7 +37,7 @@ public class AdminAgencyController {
     @GetMapping("/documents/pending")
     public ResponseEntity<ApiResponse<List<AgencyDocumentResponse>>> getPendingDocuments() {
         List<AgencyDocumentResponse> response = adminAgencyService.getPendingDocuments();
-        return ResponseEntity.ok(ApiResponse.success("Pending documents retrieved", response));
+        return ResponseUtil.ok("Pending documents retrieved", response);
     }
 
     @Operation(summary = "Get Agency Documents", description = "Get all documents for a specific agency")
@@ -45,20 +45,20 @@ public class AdminAgencyController {
     public ResponseEntity<ApiResponse<List<AgencyDocumentResponse>>> getAgencyDocuments(
             @PathVariable Long agencyId) {
         List<AgencyDocumentResponse> response = adminAgencyService.getDocumentsByAgency(agencyId);
-        return ResponseEntity.ok(ApiResponse.success("Agency documents retrieved", response));
+        return ResponseUtil.ok("Agency documents retrieved", response);
     }
 
     @Operation(summary = "Process Document Approval", description = "Approve or reject an agency document")
     @PostMapping("/documents/process")
     public ResponseEntity<ApiResponse<AgencyDocumentResponse>> processDocumentApproval(
-            @Valid @RequestBody ApiRequest<AgencyDocumentApprovalRequest> request,  // ✅ Changed DTO
+            @Valid @RequestBody ApiRequest<AgencyDocumentApprovalRequest> request,
             @CurrentUser UserPrincipal admin) {
 
         AgencyDocumentResponse response = adminAgencyService.processDocumentApproval(request.getData(), admin.getId());
         String message = request.getData().getStatus().name().equals("APPROVED")
                 ? "Document approved successfully"
                 : "Document rejected successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     // Profile Management
@@ -69,7 +69,7 @@ public class AdminAgencyController {
 
         List<AgencyProfileResponse> response = adminAgencyService.getProfilesByStatus(status);
         String message = status == null ? "All profiles retrieved" : status + " profiles retrieved";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Get Profile Details", description = "Get agency profile details by user ID")
@@ -77,7 +77,7 @@ public class AdminAgencyController {
     public ResponseEntity<ApiResponse<AgencyProfileResponse>> getProfileDetails(
             @PathVariable Long userId) {
         AgencyProfileResponse response = adminAgencyService.getProfileDetails(userId);
-        return ResponseEntity.ok(ApiResponse.success("Profile details retrieved", response));
+        return ResponseUtil.ok("Profile details retrieved", response);
     }
 
     @Operation(summary = "Process Profile Approval", description = "Approve or reject an agency profile")
@@ -90,6 +90,6 @@ public class AdminAgencyController {
         String message = request.getData().getStatus().name().equals("APPROVED")
                 ? "Profile approved successfully"
                 : "Profile rejected successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 }

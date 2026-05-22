@@ -8,6 +8,7 @@ import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.repository.JobDemandRepository;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class PublicJobController {
         Page<JobDemandResponse> response = jobs.map(this::toResponse);
         PageRes<JobDemandResponse> pageRes = Pages.of(response);
 
-        return ResponseEntity.ok(ApiResponse.success("Public jobs retrieved", pageRes));
+        return ResponseUtil.ok("Public jobs retrieved", pageRes);
     }
 
     @Operation(summary = "Get Public Job by ID", description = "Get a single public job by ID (only if isPublic=true)")
@@ -45,7 +46,7 @@ public class PublicJobController {
         JobDemand job = jobDemandRepository.findByIdAndIsPublicTrueAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Job not found or not public"));
 
-        return ResponseEntity.ok(ApiResponse.success("Job retrieved", toResponse(job)));
+        return ResponseUtil.ok("Job retrieved", toResponse(job));
     }
 
     private JobDemandResponse toResponse(JobDemand job) {

@@ -1,7 +1,6 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.admin.request.AgencyDocumentApprovalRequest;
-import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
@@ -18,6 +17,8 @@ import com.jobportal.v1.repository.UserRepository;
 import com.jobportal.v1.service.AdminAgencyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,23 +86,19 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
     }
 
     @Override
-    public List<AgencyProfileResponse> getProfilesByStatus(ApprovalStatus status) {
-
-        List<User> agencies;
+    public Page<AgencyProfileResponse> getProfilesByStatus(ApprovalStatus status, Pageable pageable) {
+        Page<User> agencies;
 
         if (status == null) {
-            agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY);
+            agencies = userRepository.findByRolesContaining(RoleEnum.AGENCY, pageable);
         } else {
-            agencies = userRepository.findByRolesContainingAndApprovalStatus(RoleEnum.AGENCY, status);
+            agencies = userRepository.findByRolesContainingAndApprovalStatus(RoleEnum.AGENCY, status, pageable);
         }
 
-        return agencies.stream()
-                .map(user -> {
-                    AgencyProfile profile = agencyProfileRepository.findByUserId(user.getId()).orElse(null);
-                    return toProfileResponse(user, profile);
-                })
-                .filter(response -> response != null)
-                .collect(Collectors.toList());
+        return agencies.map(user -> {
+            AgencyProfile profile = agencyProfileRepository.findByUserId(user.getId()).orElse(null);
+            return toProfileResponse(user, profile);
+        });
     }
 
     @Override

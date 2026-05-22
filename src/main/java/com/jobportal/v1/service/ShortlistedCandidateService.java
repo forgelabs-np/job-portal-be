@@ -23,7 +23,7 @@ public class ShortlistedCandidateService {
     private final ShortlistedCandidateMapper shortlistedCandidateMapper;
 
     @Transactional(readOnly = true)
-    public Page<ShortlistedCandidateMinimalResponse> getShortlistedCandidates(String applicationType, Pageable pageable) {
+    public Page<ShortlistedCandidateMinimalResponse> getShortlistedCandidates(String applicationType, Long jobDemandId, Pageable pageable) {
         // Validate applicationType
         if (applicationType != null && !applicationType.isEmpty()) {
             String upperType = applicationType.toUpperCase();
@@ -33,9 +33,10 @@ public class ShortlistedCandidateService {
             applicationType = upperType;
         }
 
-        long total = shortlistedCandidateMapper.countShortlistedCandidates(applicationType);
+        long total = shortlistedCandidateMapper.countShortlistedCandidates(applicationType, jobDemandId);
         List<ShortlistedCandidateMinimalResponse> content = shortlistedCandidateMapper.getShortlistedCandidatesMinimal(
                 applicationType,
+                jobDemandId,
                 pageable.getPageSize(),
                 (int) pageable.getOffset()
         );

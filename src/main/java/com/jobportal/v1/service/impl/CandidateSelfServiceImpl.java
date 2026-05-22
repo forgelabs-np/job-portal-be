@@ -452,6 +452,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
                         .id(doc.getId())
                         .documentType(doc.getDocumentType().name())
                         .documentName(doc.getDocumentName())
+                        .documentPath(doc.getDocumentPath())
                         .status(doc.getStatus() != null ? doc.getStatus().name() : "PENDING")
                         .rejectionReason(doc.getRejectionReason())
                         .uploadedAt(doc.getUploadedAt() != null ?

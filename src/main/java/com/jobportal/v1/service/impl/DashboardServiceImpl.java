@@ -4,13 +4,13 @@ import com.jobportal.v1.dto.admin.response.AdminDashboardResponse;
 import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.entity.User;
-import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.enums.CandidateType;
 import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.enums.RoleEnum;
 import com.jobportal.v1.repository.CandidateRepository;
 import com.jobportal.v1.repository.JobDemandRepository;
 import com.jobportal.v1.repository.UserRepository;
+import com.jobportal.v1.repository.projection.*;
 import com.jobportal.v1.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,120 +30,160 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DashboardServiceImpl implements DashboardService {
 
+    private static final int RECENT_LIMIT = 5;
+    private static final int WEEKLY_DAYS = 7;
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ofPattern("EEE");
+
     private final UserRepository userRepository;
     private final JobDemandRepository jobDemandRepository;
     private final CandidateRepository candidateRepository;
 
     @Override
     public AdminDashboardResponse getAdminDashboard() {
-        // Agency Stats
-        Long totalAgencies = userRepository.countByRole(RoleEnum.AGENCY);
-        Long pendingAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.PENDING);
-        Long approvedAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.APPROVED);
-        Long rejectedAgencies = userRepository.countByRoleAndApprovalStatus(RoleEnum.AGENCY, ApprovalStatus.REJECTED);
+        JobAggregateStatsProjection jobStats = jobDemandRepository.getJobAggregateStats();
+        CandidateAggregateStatsProjection candidateStats = candidateRepository.getCandidateAggregateStats(CandidateType.SELF_REGISTERED);
+        AgencyAggregateStatsProjection agencyStats = userRepository.getAgencyAggregateStats(RoleEnum.AGENCY);
 
-        Long totalSelfCandidates = candidateRepository.countByCandidateType(CandidateType.SELF_REGISTERED);
-        Long activeSelfCandidates = candidateRepository.countByCandidateTypeAndIsEnabled(CandidateType.SELF_REGISTERED, true);
-        Long inactiveSelfCandidates = candidateRepository.countByCandidateTypeAndIsEnabled(CandidateType.SELF_REGISTERED, false);
-        Long completeProfileSelfCandidates = candidateRepository.countByCandidateTypeAndProfileCompleteTrue(CandidateType.SELF_REGISTERED);
+        Map<String, Long> jobStatusMap = getJobStatusMap();
+        Long openJobs = jobStatusMap.getOrDefault("OPEN", 0L);
+        Long completedJobs = jobStatusMap.getOrDefault("COMPLETED", 0L);
+        Long closedJobs = jobStatusMap.getOrDefault("CLOSED", 0L);
+        Long cancelledJobs = jobStatusMap.getOrDefault("CANCELLED", 0L);
 
-        // Job Stats
-        Long totalJobs = jobDemandRepository.countAllActiveJobs();
-        Long openJobs = jobDemandRepository.countByStatus(JobStatus.OPEN);
-        Long completedJobs = jobDemandRepository.countByStatus(JobStatus.COMPLETED);
-        Long closedJobs = jobDemandRepository.countByStatus(JobStatus.CLOSED);
-        Long cancelledJobs = jobDemandRepository.countByStatus(JobStatus.CANCELLED);
+        return AdminDashboardResponse.builder()
+                .stats(buildDashboardStats(jobStats, candidateStats, agencyStats, openJobs, completedJobs, closedJobs, cancelledJobs))
+                .recentJobs(getRecentJobs())
+                .recentAgencies(getRecentAgencies())
+                .jobStatusDistribution(buildJobStatusDistribution(openJobs, completedJobs, closedJobs, cancelledJobs))
+                .weeklyActivity(buildWeeklyActivity())
+                .build();
+    }
 
-        // Slot Stats
-        Long totalSlots = jobDemandRepository.sumTotalSlots();
-        Long filledSlots = jobDemandRepository.sumFilledSlots();
-        Long remainingSlots = totalSlots - filledSlots;
+    private Map<String, Long> getJobStatusMap() {
+        List<JobStatusCountProjection> jobStatusCounts = jobDemandRepository.getJobStatusCounts();
+        Map<String, Long> statusMap = new HashMap<>();
+        for (JobStatusCountProjection projection : jobStatusCounts) {
+            statusMap.put(projection.getStatus(), projection.getCount());
+        }
+        return statusMap;
+    }
 
-        DashboardStats stats = DashboardStats.builder()
-                .totalAgencies(totalAgencies)
-                .pendingAgencies(pendingAgencies)
-                .approvedAgencies(approvedAgencies)
-                .activeSelfCandidates(activeSelfCandidates)
-                .inactiveSelfCandidates(inactiveSelfCandidates)
-                .completeProfileSelfCandidates(completeProfileSelfCandidates)
-                .totalSelfCandidates(totalSelfCandidates)
-                .rejectedAgencies(rejectedAgencies)
-                .totalJobs(totalJobs)
+    private DashboardStats buildDashboardStats(
+            JobAggregateStatsProjection jobStats,
+            CandidateAggregateStatsProjection candidateStats,
+            AgencyAggregateStatsProjection agencyStats,
+            Long openJobs, Long completedJobs, Long closedJobs, Long cancelledJobs) {
+
+        Long totalSlots = jobStats.getTotalSlots();
+        Long filledSlots = jobStats.getFilledSlots();
+
+        return DashboardStats.builder()
+                .totalAgencies(agencyStats.getTotalAgencies())
+                .pendingAgencies(agencyStats.getPendingAgencies())
+                .approvedAgencies(agencyStats.getApprovedAgencies())
+                .rejectedAgencies(agencyStats.getRejectedAgencies())
+                .totalSelfCandidates(candidateStats.getTotalSelfCandidates())
+                .activeSelfCandidates(candidateStats.getActiveSelfCandidates())
+                .inactiveSelfCandidates(candidateStats.getInactiveSelfCandidates())
+                .completeProfileSelfCandidates(candidateStats.getCompleteProfileSelfCandidates())
+                .totalJobs(jobStats.getTotalJobs())
                 .openJobs(openJobs)
                 .completedJobs(completedJobs)
                 .closedJobs(closedJobs)
                 .cancelledJobs(cancelledJobs)
                 .totalSlots(totalSlots)
                 .filledSlots(filledSlots)
-                .remainingSlots(remainingSlots)
+                .remainingSlots(totalSlots - filledSlots)
                 .build();
+    }
 
-        // Recent Jobs (last 5)
-        List<JobDemand> recentJobsList = jobDemandRepository.findRecentJobs(PageRequest.of(0, 5));
-        List<RecentJobDemand> recentJobs = recentJobsList.stream()
-                .map(job -> RecentJobDemand.builder()
-                        .id(job.getId())
-                        .title(job.getTitle())
-                        .country(job.getCountry() != null ? job.getCountry().getName() : null)
-                        .totalSlots(job.getTotalSlots())
-                        .filledSlots(job.getFilledSlots())
-                        .remainingSlots(job.getRemainingSlots())
-                        .appliedCount(job.getAppliedCount())
-                        .status(job.getStatus().name())
-                        .createdAt(job.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                        .build())
-                .collect(Collectors.toList());
+    private List<RecentJobDemand> getRecentJobs() {
+        return jobDemandRepository.findRecentJobs(PageRequest.of(0, RECENT_LIMIT))
+                .stream()
+                .map(this::toRecentJobDemand)
+                .toList();
+    }
 
-        // Recent Agencies (last 5)
-        List<User> recentAgenciesList = userRepository.findRecentByRole(RoleEnum.AGENCY, PageRequest.of(0, 5));
-        List<RecentAgency> recentAgencies = recentAgenciesList.stream()
-                .map(agency -> RecentAgency.builder()
-                        .id(agency.getId())
-                        .fullName(agency.getFullName())
-                        .email(agency.getEmail())
-                        .approvalStatus(agency.getApprovalStatus().name())
-                        .createdAt(agency.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                        .build())
-                .collect(Collectors.toList());
+    private RecentJobDemand toRecentJobDemand(JobDemand job) {
+        String countryName = null;
+        if (job.getCountry() != null) {
+            countryName = job.getCountry().getName();
+        }
 
-        // Job Status Distribution
-        JobStatusDistribution jobStatusDistribution = JobStatusDistribution.builder()
+        return RecentJobDemand.builder()
+                .id(job.getId())
+                .title(job.getTitle())
+                .country(countryName)
+                .totalSlots(job.getTotalSlots())
+                .filledSlots(job.getFilledSlots())
+                .remainingSlots(job.getRemainingSlots())
+                .appliedCount(job.getAppliedCount())
+                .status(job.getStatus().name())
+                .createdAt(job.getCreatedAt().format(DATE_TIME_FORMATTER))
+                .build();
+    }
+
+    private List<RecentAgency> getRecentAgencies() {
+        return userRepository.findRecentByRole(RoleEnum.AGENCY, PageRequest.of(0, RECENT_LIMIT))
+                .stream()
+                .map(this::toRecentAgency)
+                .toList();
+    }
+
+    private RecentAgency toRecentAgency(User agency) {
+        return RecentAgency.builder()
+                .id(agency.getId())
+                .fullName(agency.getFullName())
+                .email(agency.getEmail())
+                .approvalStatus(agency.getApprovalStatus().name())
+                .createdAt(agency.getCreatedAt().format(DATE_TIME_FORMATTER))
+                .build();
+    }
+
+    private JobStatusDistribution buildJobStatusDistribution(Long openJobs, Long completedJobs, Long closedJobs, Long cancelledJobs) {
+        return JobStatusDistribution.builder()
                 .open(openJobs)
                 .completed(completedJobs)
                 .closed(closedJobs)
                 .cancelled(cancelledJobs)
                 .build();
+    }
 
-        // Weekly Activity (last 7 days)
-        List<String> days = new java.util.ArrayList<>();
-        List<Long> jobsCreated = new java.util.ArrayList<>();
-        List<Long> agenciesJoined = new java.util.ArrayList<>();
+    private WeeklyActivity buildWeeklyActivity() {
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(WEEKLY_DAYS).withHour(0).withMinute(0).withSecond(0);
 
-        for (int i = 6; i >= 0; i--) {
-            LocalDateTime dayStart = LocalDateTime.now().minusDays(i).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
+        Map<String, Long> jobCounts = jobDemandRepository.getDailyJobCounts(sevenDaysAgo)
+                .stream()
+                .collect(Collectors.toMap(
+                        p -> p.getDate().substring(0, 10),
+                        DailyJobCountProjection::getCount,
+                        (a, b) -> a
+                ));
 
-            days.add(dayStart.format(DateTimeFormatter.ofPattern("EEE")));
+        Map<String, Long> agencyCounts = userRepository.getDailyAgencyCounts(RoleEnum.AGENCY, sevenDaysAgo)
+                .stream()
+                .collect(Collectors.toMap(
+                        p -> p.getDate().substring(0, 10),
+                        DailyAgencyCountProjection::getCount,
+                        (a, b) -> a
+                ));
 
-            Long jobsCount = jobDemandRepository.countByDateRange(dayStart, dayEnd);
-            jobsCreated.add(jobsCount);
+        List<String> days = new ArrayList<>();
+        List<Long> jobsCreated = new ArrayList<>();
+        List<Long> agenciesJoined = new ArrayList<>();
 
-            Long agenciesCount = userRepository.countByRoleAndDateRange(RoleEnum.AGENCY, dayStart, dayEnd);
-            agenciesJoined.add(agenciesCount);
+        for (int i = WEEKLY_DAYS - 1; i >= 0; i--) {
+            String dayKey = LocalDateTime.now().minusDays(i).toLocalDate().toString();
+            days.add(LocalDateTime.now().minusDays(i).format(DAY_FORMATTER));
+            jobsCreated.add(jobCounts.getOrDefault(dayKey, 0L));
+            agenciesJoined.add(agencyCounts.getOrDefault(dayKey, 0L));
         }
 
-        WeeklyActivity weeklyActivity = WeeklyActivity.builder()
+        return WeeklyActivity.builder()
                 .days(days)
                 .jobsCreated(jobsCreated)
                 .agenciesJoined(agenciesJoined)
-                .build();
-
-        return AdminDashboardResponse.builder()
-                .stats(stats)
-                .recentJobs(recentJobs)
-                .recentAgencies(recentAgencies)
-                .jobStatusDistribution(jobStatusDistribution)
-                .weeklyActivity(weeklyActivity)
                 .build();
     }
 }

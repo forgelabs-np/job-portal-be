@@ -44,6 +44,7 @@ public class CandidateJobApplicationResponse {
     public static class DocumentInfo {
         private Long id;
         private String documentType;
+        private String documentPath;
         private String documentName;
         private String status;
         private String rejectionReason;

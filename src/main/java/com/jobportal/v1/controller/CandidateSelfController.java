@@ -13,7 +13,6 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.CandidateDashboardService;
 import com.jobportal.v1.service.CandidateSelfService;
-import com.jobportal.v1.util.Pages;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -107,9 +106,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         Page<JobApplicationResponse> applications = candidateSelfService.getMyApplications(candidate.getId(), pageable);
-        PageRes<JobApplicationResponse> response = Pages.of(applications);
-
-        return ResponseUtil.ok("Applications retrieved", response);
+        return ResponseUtil.page("Applications retrieved", applications);
     }
 
     @Operation(summary = "Get Application by ID", description = "Get detailed job application by ID with document statuses")
@@ -152,8 +149,6 @@ public class CandidateSelfController {
 
         Page<JobApplicationResponse> applications = candidateSelfService.getMyApplications(
                 candidate.getId(), "SHORTLISTED", pageable);
-        PageRes<JobApplicationResponse> response = Pages.of(applications);
-
-        return ResponseUtil.ok("Shortlisted applications retrieved", response);
+        return ResponseUtil.page("Shortlisted applications retrieved", applications);
     }
 }

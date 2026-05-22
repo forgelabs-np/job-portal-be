@@ -6,7 +6,6 @@ import com.jobportal.v1.dto.agency.response.AgencyJobResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.JobAgencyAssignmentService;
-import com.jobportal.v1.util.Pages;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,8 +37,6 @@ public class AgencyJobController {
             @CurrentUser UserPrincipal agency) {
 
         Page<AgencyJobResponse> response = jobAgencyAssignmentService.getMyAssignedJobs(agency.getId(), pageable);
-        PageRes<AgencyJobResponse> pageRes = Pages.of(response);
-
-        return ResponseUtil.ok("Assigned jobs retrieved", pageRes);
+        return ResponseUtil.page("Assigned jobs retrieved", response);
     }
 }

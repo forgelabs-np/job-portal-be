@@ -9,7 +9,6 @@ import com.jobportal.v1.dto.candidate.response.CandidateResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.CandidateService;
-import com.jobportal.v1.util.Pages;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,9 +38,7 @@ public class AdminCandidateController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<AgencyCandidatesGroupResponse> response = candidateService.getAllCandidatesGroupedByAgency(pageable);
-        PageRes<AgencyCandidatesGroupResponse> pageRes = Pages.of(response);
-
-        return ResponseUtil.ok("Candidates retrieved by agency", pageRes);
+        return ResponseUtil.page("Candidates retrieved by agency", response);
     }
 
     @Operation(summary = "Update Candidate Status", description = "Admin updates candidate document statuses (PCC, SLC, Work Permit, Visa)")
@@ -61,9 +58,7 @@ public class AdminCandidateController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<CandidateResponse> response = candidateService.getSelfRegisteredCandidates(pageable);
-        PageRes<CandidateResponse> pageRes = Pages.of(response);
-
-        return ResponseUtil.ok("Self-registered candidates retrieved", pageRes);
+        return ResponseUtil.page("Self-registered candidates retrieved", response);
     }
 
     @Operation(summary = "Toggle Candidate Status (Admin)", description = "Admin enables or disables any candidate")

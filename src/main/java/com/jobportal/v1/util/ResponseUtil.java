@@ -1,6 +1,8 @@
 package com.jobportal.v1.util;
 
 import com.jobportal.v1.dto.ApiResponse;
+import com.jobportal.v1.dto.PageRes;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -23,7 +25,6 @@ public final class ResponseUtil {
 
     /**
      * Create success response without data (returns Void type)
-     * Use this when method returns ResponseEntity<ApiResponse<Void>>
      */
     public static ResponseEntity<ApiResponse<Void>> ok(String message) {
         return ResponseEntity.ok(ApiResponse.success(message, null));
@@ -31,7 +32,6 @@ public final class ResponseUtil {
 
     /**
      * Create success response with String data
-     * Use this when method returns ResponseEntity<ApiResponse<String>>
      */
     public static ResponseEntity<ApiResponse<String>> okString(String message, String data) {
         return ResponseEntity.ok(ApiResponse.success(message, data));
@@ -39,10 +39,17 @@ public final class ResponseUtil {
 
     /**
      * Create success response with String message only (no data)
-     * Use this when method returns ResponseEntity<ApiResponse<String>> and data is null
      */
     public static ResponseEntity<ApiResponse<String>> okString(String message) {
         return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
+    /**
+     * Create paginated response - automatically wraps Page<T> into PageRes<T>
+     * This eliminates the repetitive Pages.of() call in every controller
+     */
+    public static <T> ResponseEntity<ApiResponse<PageRes<T>>> page(String message, Page<T> page) {
+        return ResponseEntity.ok(ApiResponse.success(message, Pages.of(page)));
     }
 
     /**

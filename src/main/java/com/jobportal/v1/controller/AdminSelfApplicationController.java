@@ -13,7 +13,6 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AdminCandidateDocumentService;
 import com.jobportal.v1.service.JobApplicationService;
-import com.jobportal.v1.util.Pages;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,9 +48,7 @@ public class AdminSelfApplicationController {
 
         Page<JobApplicationResponse> applications = jobApplicationService.getAllSelfApplications(
                 jobDemandId, status, pageable);
-        PageRes<JobApplicationResponse> response = Pages.of(applications);
-
-        return ResponseUtil.ok("Self-candidate applications retrieved", response);
+        return ResponseUtil.page("Self-candidate applications retrieved", applications);
     }
 
     @Operation(summary = "Get Self-Application Details", description = "Get detailed application information for self-candidate application")
@@ -85,9 +82,7 @@ public class AdminSelfApplicationController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<CandidateDocumentResponse> response = adminCandidateDocumentService.getPendingDocuments(pageable);
-        PageRes<CandidateDocumentResponse> pageRes = Pages.of(response);
-
-        return ResponseUtil.ok("Pending documents retrieved", pageRes);
+        return ResponseUtil.page("Pending documents retrieved", response);
     }
 
     @Operation(summary = "Get Documents by Candidate", description = "Get all documents for a specific candidate")

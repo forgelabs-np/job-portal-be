@@ -18,12 +18,14 @@ import com.jobportal.v1.service.AdminAgencyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -95,10 +97,18 @@ public class AdminAgencyServiceImpl implements AdminAgencyService {
             agencies = userRepository.findByRolesContainingAndApprovalStatus(RoleEnum.AGENCY, status, pageable);
         }
 
-        return agencies.map(user -> {
-            AgencyProfile profile = agencyProfileRepository.findByUserId(user.getId()).orElse(null);
-            return toProfileResponse(user, profile);
-        });
+        List<AgencyProfileResponse> responses = agencies.getContent().stream()
+                .map(user -> {
+                    AgencyProfile profile = agencyProfileRepository.findByUserId(user.getId()).orElse(null);
+                    if (profile == null) {
+                        return null;
+                    }
+                    return toProfileResponse(user, profile);
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(responses, pageable, agencies.getTotalElements());
     }
 
     @Override

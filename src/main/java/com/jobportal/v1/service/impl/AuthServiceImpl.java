@@ -25,9 +25,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 
 @Service
@@ -45,19 +45,21 @@ public class AuthServiceImpl implements AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final PasswordResetService passwordResetService;
-    private final ObjectMapper objectMapper;
     private final HttpServletRequest httpServletRequest;
 
-    @Value("${app.otp.expiry-minutes}")
+    @Value("${app.security.registration.otp-expiry-minutes}")
     private int otpExpiryMinutes;
 
-    @Value("${app.otp.resend-cooldown-seconds}")
+    @Value("${app.security.registration.otp-resend-cooldown-seconds}")
     private int resendCooldownSeconds;
 
-    @Value("${app.max-login-attempts}")
+    @Value("${app.security.max-login-attempts}")
     private int maxLoginAttempts;
 
-    @Value("${app.lock-duration-minutes}")
+    @Value("${app.security.registration.max-otp-attempts:5}")
+    private int maxResendAttempts;
+
+    @Value("${app.security.account-lock-duration-minutes}")
     private int lockDurationMinutes;
 
     @Value("${app.test.mode:false}")
@@ -128,21 +130,31 @@ public class AuthServiceImpl implements AuthService {
 
         emailVerificationTokenRepository.findByEmail(signUpRequest.getEmail())
                 .ifPresent(token -> {
-                    if (!token.isExpired() && !token.isUsed()) {
-                        throw new BadRequestException("Verification already sent to your email. Please check your inbox or wait for cooldown.");
+                    boolean isActive = !token.isExpired()
+                            && !token.isUsed()
+                            && token.getAttempts() < maxResendAttempts;
+                    if (isActive) {
+                        throw new BadRequestException(
+                                "Verification already sent to your email. " +
+                                        "Please check your inbox or use resend.");
                     }
                     emailVerificationTokenRepository.deleteByEmail(signUpRequest.getEmail());
+                    emailVerificationTokenRepository.flush();
                 });
 
         String otp = generateOtp();
 
         try {
-            String userDataJson = objectMapper.writeValueAsString(signUpRequest);
-
             EmailVerificationToken token = new EmailVerificationToken();
             token.setEmail(signUpRequest.getEmail());
             token.setOtp(otp);
-            token.setUserData(userDataJson);
+
+            token.setFullName(signUpRequest.getFullName());
+            token.setEncodedPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+
+            RoleEnum role = signUpRequest.getRoleEnums().iterator().next();
+            token.setRole(role.name());
+
             token.setExpiryDate(LocalDateTime.now().plusMinutes(otpExpiryMinutes));
             token.setCreatedAt(LocalDateTime.now());
             token.setUpdatedAt(LocalDateTime.now());
@@ -181,18 +193,19 @@ public class AuthServiceImpl implements AuthService {
         }
 
         try {
-            SignupRequest signUpRequest = objectMapper.readValue(token.getUserData(), SignupRequest.class);
-
             User user = new User();
-            user.setFullName(signUpRequest.getFullName());
-            user.setEmail(signUpRequest.getEmail());
-            user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
-            user.setRoles(signUpRequest.getRoleEnums());
+            user.setFullName(token.getFullName());
+            user.setEmail(token.getEmail());
+            user.setPassword(token.getEncodedPassword());
+
+            Set<RoleEnum> roles = new HashSet<>();
+            roles.add(RoleEnum.valueOf(token.getRole()));
+            user.setRoles(roles);
+
             user.setEmailVerified(true);
             user.setEmailVerifiedAt(LocalDateTime.now());
             user.setActive(true);
 
-            // Set approval status based on role
             if (user.isAdmin() || user.isCandidate()) {
                 user.setApprovalStatus(ApprovalStatus.APPROVED);
             } else if (user.isAgency()) {
@@ -201,24 +214,21 @@ public class AuthServiceImpl implements AuthService {
 
             User savedUser = userRepository.save(user);
 
-            // If user is a CANDIDATE, automatically create candidate profile
             if (savedUser.isCandidate()) {
-                // Check if candidate profile already exists (for agency-created candidates)
                 boolean candidateExists = candidateRepository.existsByUserId(savedUser.getId());
 
                 if (!candidateExists) {
                     Candidate candidate = new Candidate();
                     candidate.setUser(savedUser);
                     candidate.setAgency(null);
-                    candidate.setFirstName(getFirstNameFromFullName(signUpRequest.getFullName()));
-                    candidate.setLastName(getLastNameFromFullName(signUpRequest.getFullName()));
+                    candidate.setFirstName(getFirstNameFromFullName(token.getFullName()));
+                    candidate.setLastName(getLastNameFromFullName(token.getFullName()));
                     candidate.setCandidateType(CandidateType.SELF_REGISTERED);
                     candidate.setCreatedByType(CreatedByType.CANDIDATE);
                     candidate.setCreatedBy(savedUser.getId());
                     candidate.setIsEnabled(true);
                     candidateRepository.save(candidate);
 
-                    // Create default status for candidate
                     CandidateStatus status = new CandidateStatus();
                     status.setCandidate(candidate);
                     candidateStatusRepository.save(status);
@@ -228,13 +238,13 @@ public class AuthServiceImpl implements AuthService {
             }
 
             token.setUsed(true);
+            token.setUsedAt(LocalDateTime.now());
             token.setUpdatedAt(LocalDateTime.now());
             emailVerificationTokenRepository.save(token);
 
-            // Send welcome email
             emailService.sendWelcomeEmail(savedUser);
 
-            log.info("User registered successfully with roles: {}", signUpRequest.getRoleEnums());
+            log.info("User registered successfully with role: {}", token.getRole());
             return savedUser;
 
         } catch (Exception e) {
@@ -252,9 +262,18 @@ public class AuthServiceImpl implements AuthService {
         if (token.isUsed()) {
             throw new BadRequestException("This email is already verified");
         }
+        if (token.isExpired()) {
+            emailVerificationTokenRepository.delete(token);
+            throw new BadRequestException(
+                    "Verification code has expired. Please register again.");
+        }
+        if (token.getAttempts() >= maxResendAttempts) {
+            throw new BadRequestException("Maximum OTP requests exceeded. Please register again.");
+        }
 
         if (!token.canResend(resendCooldownSeconds)) {
-            throw new BadRequestException("Please wait before requesting another verification code");
+            long secondsRemaining = token.getSecondsRemaining(resendCooldownSeconds);
+            throw new BadRequestException(String.format("Please wait %d seconds before requesting another verification code", secondsRemaining));
         }
 
         String newOtp = generateOtp();
@@ -268,16 +287,10 @@ public class AuthServiceImpl implements AuthService {
 
         emailVerificationTokenRepository.save(token);
 
-        try {
-            SignupRequest signUpRequest = objectMapper.readValue(token.getUserData(), SignupRequest.class);
-            emailService.sendVerificationEmail(email, signUpRequest.getFullName(), newOtp);
+        emailService.sendVerificationEmail(email, token.getFullName(), newOtp);
 
-            if (testMode) {
-                log.info("TEST MODE - Resent OTP for {} is: {}", email, newOtp);
-            }
-        } catch (Exception e) {
-            log.error("Error resending OTP: {}", e.getMessage());
-            throw new RuntimeException("Failed to resend verification code", e);
+        if (testMode) {
+            log.info("TEST MODE - Resent OTP for {} is: {}", email, newOtp);
         }
 
         log.info("Resent verification OTP to: {}", email);
@@ -348,7 +361,7 @@ public class AuthServiceImpl implements AuthService {
         if (testMode) {
             return staticOtp;
         }
-        Random random = new Random();
+        SecureRandom random = new SecureRandom();
         return String.format("%06d", random.nextInt(1000000));
     }
 

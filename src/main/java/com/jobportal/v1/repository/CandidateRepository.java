@@ -2,12 +2,9 @@ package com.jobportal.v1.repository;
 
 import com.jobportal.v1.entity.Candidate;
 import com.jobportal.v1.enums.CandidateType;
-import com.jobportal.v1.repository.projection.CandidateAggregateStatsProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -36,11 +33,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
     boolean existsByUserId(Long userId);
 
-    @Query("SELECT " +
-            "COUNT(c) as totalSelfCandidates, " +
-            "SUM(CASE WHEN c.isEnabled = true THEN 1 ELSE 0 END) as activeSelfCandidates, " +
-            "SUM(CASE WHEN c.isEnabled = false THEN 1 ELSE 0 END) as inactiveSelfCandidates, " +
-            "SUM(CASE WHEN c.profileComplete = true THEN 1 ELSE 0 END) as completeProfileSelfCandidates " +
-            "FROM Candidate c WHERE c.candidateType = :type")
-    CandidateAggregateStatsProjection getCandidateAggregateStats(@Param("type") CandidateType type);
+    List<Candidate> findByAgencyIdAndCandidateType(Long agencyId, CandidateType candidateType);
+
+    // With pagination
+    Page<Candidate> findByAgencyIdAndCandidateType(Long agencyId, CandidateType candidateType, Pageable pageable);
 }

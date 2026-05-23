@@ -43,22 +43,38 @@ public class JobApplicationServiceImpl implements JobApplicationService {
     @Override
     @Transactional
     public JobApplicationResponse applyForJob(JobApplicationRequest request, Long agencyId) {
-        // Validate job exists and is open
+        // 1. Validate job exists
         JobDemand job = jobDemandRepository.findById(request.getJobDemandId())
                 .orElseThrow(() -> new ResourceNotFoundException("Job not found"));
 
+        // 2. Job must be open
         if (!job.isOpen()) {
             throw new BadRequestException("Job is not open for applications");
         }
 
-        // Validate agency is assigned to this job
+        // 3. Job must be active
+        if (!job.getIsActive()) {
+            throw new BadRequestException("Job is not active");
+        }
+
+        // 4. Job must have remaining slots
+        if (job.getRemainingSlots() != null && job.getRemainingSlots() <= 0) {
+            throw new BadRequestException("No remaining slots available for this job");
+        }
+
+        // 5. Job deadline should not be expired
+        if (job.getDeadline() != null && job.getDeadline().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Job deadline has expired");
+        }
+
+        // 6. Validate agency is assigned to this job
         boolean isAssigned = assignmentRepository.existsByJobDemandIdAndAgencyIdAndIsEnabledTrue(
                 request.getJobDemandId(), agencyId);
         if (!isAssigned) {
             throw new BadRequestException("You are not authorized to apply for this job");
         }
 
-        // Validate candidate exists and belongs to agency
+        // 7. Validate candidate exists and belongs to agency
         Candidate candidate = candidateRepository.findByIdAndAgencyId(request.getCandidateId(), agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
@@ -66,25 +82,38 @@ public class JobApplicationServiceImpl implements JobApplicationService {
             throw new BadRequestException("Candidate is disabled. Please enable candidate first.");
         }
 
-        // Check if candidate documents are approved before applying
+        // 8. Optional: Check profile completion
+        if (!candidate.isProfileComplete()) {
+            throw new BadRequestException("Candidate profile is incomplete. Please complete candidate profile before applying.");
+        }
+
+        // 9. Check candidate documents
         if (candidate.isAgencyManaged()) {
             List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
+
+            if (documents.isEmpty()) {
+                throw new BadRequestException("Cannot apply for job. Candidate has no documents uploaded. Please upload required documents first.");
+            }
+
             boolean hasRejectedDocuments = documents.stream()
                     .anyMatch(doc -> doc.getStatus() == ApprovalStatus.REJECTED);
 
             if (hasRejectedDocuments) {
-                throw new BadRequestException("Cannot apply for job. Candidate has rejected documents. Please fix rejected documents first.");
+                long rejectedCount = documents.stream()
+                        .filter(doc -> doc.getStatus() == ApprovalStatus.REJECTED)
+                        .count();
+                throw new BadRequestException("Cannot apply for job. Candidate has " + rejectedCount + " rejected document(s). Please fix rejected documents first.");
             }
         }
 
-        // Check for existing application
+        // 10. Check for existing application
         Optional<JobApplication> existingApplication = jobApplicationRepository
                 .findByJobDemandIdAndCandidateId(request.getJobDemandId(), request.getCandidateId());
 
         if (existingApplication.isPresent()) {
             JobApplication existing = existingApplication.get();
 
-            // If application is WITHDRAWN, allow re-application by reactivating
+            // If application is WITHDRAWN, allow re-application
             if (existing.getStatus() == ApplicationStatus.WITHDRAWN) {
                 existing.setStatus(ApplicationStatus.PENDING);
                 existing.setNotes(request.getNotes());
@@ -94,19 +123,19 @@ public class JobApplicationServiceImpl implements JobApplicationService {
                 existing.setReviewedAt(null);
 
                 JobApplication updated = jobApplicationRepository.save(existing);
-                log.info("Re-applied for job: Job {} by Candidate {} from Agency {} (previous withdrawn application reactivated)",
+                log.info("Re-applied for job: Job {} by Candidate {} from Agency {} (withdrawn application reactivated)",
                         job.getTitle(), candidate.getFirstName() + candidate.getLastName(), agencyId);
                 return mapToAgencyResponse(updated);
             }
 
-            // If application is already PENDING, REVIEWED, or SHORTLISTED, block re-application
+            // Block re-application for active statuses
             if (existing.getStatus() == ApplicationStatus.PENDING ||
                     existing.getStatus() == ApplicationStatus.REVIEWED ||
                     existing.getStatus() == ApplicationStatus.SHORTLISTED) {
                 throw new BadRequestException("This candidate has already applied for this job with status: " + existing.getStatus());
             }
 
-            // If application is REJECTED, allow re-application
+            // Allow re-application for REJECTED
             if (existing.getStatus() == ApplicationStatus.REJECTED) {
                 existing.setStatus(ApplicationStatus.PENDING);
                 existing.setNotes(request.getNotes());
@@ -116,13 +145,13 @@ public class JobApplicationServiceImpl implements JobApplicationService {
                 existing.setReviewedAt(null);
 
                 JobApplication updated = jobApplicationRepository.save(existing);
-                log.info("Re-applied for job: Job {} by Candidate {} from Agency {} (previous rejected application reactivated)",
+                log.info("Re-applied for job: Job {} by Candidate {} from Agency {} (rejected application reactivated)",
                         job.getTitle(), candidate.getFirstName() + candidate.getLastName(), agencyId);
                 return mapToAgencyResponse(updated);
             }
         }
 
-        // Create new application
+        // 11. Create new application
         JobApplication application = new JobApplication();
         application.setJobDemand(job);
         application.setCandidate(candidate);
@@ -131,6 +160,10 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         application.setStatus(ApplicationStatus.PENDING);
 
         JobApplication saved = jobApplicationRepository.save(application);
+
+        // 12. Update counters
+        job.incrementAppliedCount();
+        jobDemandRepository.save(job);
 
         log.info("Application submitted: Job {} by Candidate {} from Agency {}",
                 job.getTitle(), candidate.getFirstName() + candidate.getLastName(), agencyId);

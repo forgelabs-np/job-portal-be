@@ -20,8 +20,14 @@ public class EmailVerificationToken {
     @Column(nullable = false, length = 6)
     private String otp;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String userData;
+    @Column(nullable = false)
+    private String fullName;
+
+    @Column(nullable = false)
+    private String encodedPassword;
+
+    @Column(nullable = false)
+    private String role;
 
     @Column(nullable = false)
     private LocalDateTime expiryDate;
@@ -68,5 +74,11 @@ public class EmailVerificationToken {
     public boolean canResend(int cooldownSeconds) {
         if (lastResendAt == null) return true;
         return LocalDateTime.now().isAfter(lastResendAt.plusSeconds(cooldownSeconds));
+    }
+    public long getSecondsRemaining(int cooldownSeconds) {
+        if (lastResendAt == null) return 0;
+        long elapsedSeconds = java.time.Duration.between(lastResendAt, LocalDateTime.now()).getSeconds();
+        long remaining = cooldownSeconds - elapsedSeconds;
+        return remaining > 0 ? remaining : 0;
     }
 }

@@ -40,4 +40,7 @@ public interface CandidateDashboardMapper {
 
     // Total public jobs count
     Long getTotalPublicJobsCount(@Param("status") String status);
+
+    // Add this method
+    Long getAvailableJobsCount(@Param("candidateId") Long candidateId, @Param("status") String status);
 }

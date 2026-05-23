@@ -33,12 +33,14 @@ app:
     password-reset:
       token-expiration-ms: 300000
       otp-length: 6
-      max-attempts: 3
-  otp:
-    expiry-minutes: 10
-    resend-cooldown-seconds: 120
-  max-login-attempts: 5
-  lock-duration-minutes: 30
+      max-otp-attempts: 3
+      request-cooldown-seconds: 60
+      max-daily-requests: 5
+    registration:
+      otp-expiry-minutes: 10
+      otp-resend-cooldown-seconds: 120
+      max-otp-attempts: 5
+
   dashboard:
     recent-limit: 5
     recommended-limit: 5

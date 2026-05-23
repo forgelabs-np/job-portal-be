@@ -17,23 +17,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 public class PasswordResetServiceImpl implements PasswordResetService {
-    private static final Logger logger = LoggerFactory.getLogger(PasswordResetServiceImpl.class);
-    private static final Random random = new Random();
 
-    @Value("${app.security.password-reset.token-expiration-ms:3600000}") // 1 hour
+    private static final Logger logger = LoggerFactory.getLogger(PasswordResetServiceImpl.class);
+    private static final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.security.password-reset.token-expiration-ms:3600000}")
     private long tokenExpirationMs;
 
-    @Value("${app.security.password-reset.otp-length:6}")
-    private int otpLength;
-
-    @Value("${app.security.password-reset.max-attempts:3}")
+    @Value("${app.security.password-reset.max-otp-attempts:3}")
     private int maxOtpAttempts;
+
+    @Value("${app.security.password-reset.request-cooldown-seconds:60}")
+    private int requestCooldownSeconds;
+
+    @Value("${app.security.password-reset.max-daily-requests:5}")
+    private int maxDailyRequests;
 
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordResetLogRepository logRepository;
@@ -56,39 +60,64 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Override
     @Transactional
     public void requestPasswordReset(String email, String ipAddress, String userAgent) {
-        // Validate email format
         if (!isValidEmail(email)) {
-            logger.warn("Invalid email format for password reset: {}", email);
             throw new IllegalArgumentException("Invalid email format");
         }
 
-        User user = userRepository.findByEmail(email.toLowerCase().trim())
-                .orElseThrow(() -> {
-                    logger.warn("Password reset requested for non-existent email: {}", email);
-                    // Don't reveal if email exists or not for security
-                    return new RuntimeException("If the email exists, a reset OTP has been sent");
-                });
+        Optional<User> userOpt = userRepository.findByEmail(email.toLowerCase().trim());
 
-        // FIRST, delete any existing tokens for this user
+        if (userOpt.isEmpty()) {
+            // Silent return — don't reveal whether email exists (prevents enumeration)
+            logger.warn("Password reset requested for non-existent email from IP: {}", ipAddress);
+            return;
+        }
+
+        User user = userOpt.get();
+
+        Optional<PasswordResetLog> lastRequest =
+                logRepository.findTopByUserOrderByRequestedAtDesc(user);
+
+        if (lastRequest.isPresent()) {
+            long secondsSince = java.time.Duration.between(
+                    lastRequest.get().getRequestedAt(),
+                    LocalDateTime.now()).getSeconds();
+
+            if (secondsSince < requestCooldownSeconds) {
+                long remaining = requestCooldownSeconds - secondsSince;
+                throw new RuntimeException(String.format(
+                        "Please wait %d seconds before requesting another password reset.",
+                        remaining));
+            }
+        }
+
+        // ── Daily limit check — max requests per 24 hours
+        LocalDateTime since = LocalDateTime.now().minusHours(24);
+        long requestsToday = logRepository.countByUserAndRequestedAtAfter(user, since);
+
+        if (requestsToday >= maxDailyRequests) {
+            logger.warn("Max daily password reset attempts exceeded for user: {} from IP: {}",
+                    user.getEmail(), ipAddress);
+            throw new RuntimeException(
+                    "Too many password reset requests. " +
+                            "Please try again after 24 hours or contact support.");
+        }
+
+        // flush() forces the DELETE to DB before the INSERT to avoid constraint violations
         tokenRepository.deleteByUser(user);
-
-        // Flush immediately to ensure the delete is committed
         tokenRepository.flush();
 
-        // Generate 6-digit OTP
+        // ── Generate and save new OTP
         String otp = generateOTP();
 
-        // Create new token
         PasswordResetToken resetToken = new PasswordResetToken();
         resetToken.setToken(otp);
         resetToken.setUser(user);
         resetToken.setExpiryDate(LocalDateTime.now().plusSeconds(tokenExpirationMs / 1000));
         resetToken.setUsed(false);
         resetToken.setAttempts(0);
-
         tokenRepository.save(resetToken);
 
-        // Log the request
+        // ── Log the request
         PasswordResetLog log = new PasswordResetLog();
         log.setUser(user);
         log.setRequestedAt(LocalDateTime.now());
@@ -97,82 +126,123 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         log.setUserAgent(userAgent);
         logRepository.save(log);
 
-        // Send email with OTP
+        // ── Send email
         emailService.sendPasswordResetEmail(user, otp);
 
-        logger.info("Password reset OTP created and sent for user: {}", user.getEmail());
+        logger.info("Password reset OTP sent for user: {} (request #{} in last 24h)",
+                user.getEmail(), requestsToday + 1);
     }
 
     @Override
     @Transactional
     public void resetPassword(String token, String newPassword, String ipAddress, String userAgent) {
-        // Validate OTP format (6 digits)
+
+        // ── Validate OTP format
         if (!isValidOTP(token)) {
-            throw new IllegalArgumentException("Invalid OTP format");
+            throw new IllegalArgumentException("Invalid OTP format. Must be 6 digits.");
         }
 
-        // Find token by OTP value (not by user)
+        // ── Find token
         PasswordResetToken resetToken = tokenRepository.findByToken(token)
                 .orElseThrow(() -> {
-                    logger.warn("Invalid password reset OTP used: {}", token);
+                    logger.warn("Invalid password reset OTP used from IP: {}", ipAddress);
                     return new TokenNotFoundException("Invalid or expired OTP");
                 });
 
-        // Check if OTP is already used
+        // ── Already used
         if (resetToken.isUsed()) {
-            logger.warn("Attempt to use already used password reset OTP: {}", token);
-            throw new TokenExpiredException("This OTP has already been used");
+            logger.warn("Attempt to reuse already-used password reset OTP from IP: {}", ipAddress);
+            throw new TokenExpiredException("This OTP has already been used. Please request a new one.");
         }
 
-        // Check if OTP is expired
+        // ── Expired — delete and force fresh request ──────────────────────
         if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            logger.warn("Attempt to use expired password reset OTP: {}", token);
-            throw new TokenExpiredException("OTP has expired");
+            logger.warn("Expired password reset OTP used from IP: {}", ipAddress);
+            tokenRepository.delete(resetToken);
+            tokenRepository.flush();
+            throw new TokenExpiredException(
+                    "OTP has expired. Please request a new password reset.");
         }
 
-        // Check OTP attempts
+        // ── Max attempts exceeded — delete and force fresh request
         if (resetToken.getAttempts() >= maxOtpAttempts) {
-            logger.warn("Too many failed attempts for OTP: {}", token);
-            throw new TokenExpiredException("Too many failed attempts. Please request a new OTP.");
+            logger.warn("Max OTP attempts exceeded for token from IP: {}", ipAddress);
+            tokenRepository.delete(resetToken);
+            tokenRepository.flush();
+            throw new TokenExpiredException(
+                    "Too many failed attempts. Please request a new password reset.");
         }
 
-        // Validate new password strength
+        // Increment attempts on every failed validation
         if (!isPasswordStrong(newPassword)) {
             resetToken.setAttempts(resetToken.getAttempts() + 1);
             tokenRepository.save(resetToken);
-            throw new IllegalArgumentException("Password must be at least 8 characters with uppercase, lowercase, and number");
+            logger.warn("Weak password attempt during reset. Attempts now: {}",
+                    resetToken.getAttempts());
+            throw new IllegalArgumentException(
+                    "Password must be at least 8 characters and contain " +
+                            "uppercase, lowercase, and a number.");
         }
 
         User user = resetToken.getUser();
 
-        // Check if new password is same as old password
         if (passwordEncoder.matches(newPassword, user.getPassword())) {
             resetToken.setAttempts(resetToken.getAttempts() + 1);
             tokenRepository.save(resetToken);
-            throw new IllegalArgumentException("New password cannot be the same as the current password");
+            throw new IllegalArgumentException(
+                    "New password cannot be the same as your current password.");
         }
 
-        // Update user password
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordUpdatedAt(LocalDateTime.now());
-        user.unlockAccount();
+        user.unlockAccount(); // clears failed login attempts and lock
         userRepository.save(user);
 
         resetToken.setUsed(true);
         tokenRepository.save(resetToken);
 
-
-        PasswordResetLog log = logRepository.findTopByUserOrderByRequestedAtDesc(user)
-                .orElseThrow(() -> new RuntimeException("No password reset request found for user"));
-        log.setCompletedAt(LocalDateTime.now());
-        log.setStatus("COMPLETED");
-        logRepository.save(log);
+        logRepository.findTopByUserOrderByRequestedAtDesc(user)
+                .ifPresent(log -> {
+                    log.setCompletedAt(LocalDateTime.now());
+                    log.setStatus("COMPLETED");
+                    logRepository.save(log);
+                });
 
         logger.info("Password successfully reset for user: {}", user.getEmail());
     }
 
+
+    @Transactional(readOnly = true)
+    public boolean verifyOTP(String otp) {
+        if (!isValidOTP(otp)) {
+            return false;
+        }
+
+        Optional<PasswordResetToken> resetTokenOpt = tokenRepository.findByToken(otp);
+        if (resetTokenOpt.isEmpty()) {
+            return false;
+        }
+
+        PasswordResetToken token = resetTokenOpt.get();
+
+        if (token.isUsed()) {
+            return false;
+        }
+
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return false;
+        }
+
+        if (token.getAttempts() >= maxOtpAttempts) {
+            return false;
+        }
+
+        return true;
+    }
+
     private String generateOTP() {
-        int otp = 100000 + random.nextInt(900000);
+        // SecureRandom ensures cryptographically strong randomness
+        int otp = 100000 + secureRandom.nextInt(900000);
         return String.valueOf(otp);
     }
 
@@ -186,35 +256,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
     private boolean isPasswordStrong(String password) {
         if (password == null || password.length() < 8) return false;
-        return password.matches(".*[A-Z].*") &&
-                password.matches(".*[a-z].*") &&
-                password.matches(".*[0-9].*");
-    }
-
-    /**
-     * Verify OTP without resetting password (for frontend validation)
-     */
-    @Transactional
-    public boolean verifyOTP(String otp) {
-        if (!isValidOTP(otp)) {
-            return false;
-        }
-
-        Optional<PasswordResetToken> resetToken = tokenRepository.findByToken(otp);
-        if (resetToken.isEmpty()) {
-            return false;
-        }
-
-        PasswordResetToken token = resetToken.get();
-
-        if (token.isUsed() || token.getExpiryDate().isBefore(LocalDateTime.now())) {
-            return false;
-        }
-
-        if (token.getAttempts() >= maxOtpAttempts) {
-            return false;
-        }
-
-        return true;
+        return password.matches(".*[A-Z].*")
+                && password.matches(".*[a-z].*")
+                && password.matches(".*[0-9].*");
     }
 }

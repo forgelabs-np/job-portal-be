@@ -87,8 +87,8 @@ public class CandidateDashboardServiceImpl implements CandidateDashboardService 
 
         // 4. Job stats
         long totalPublicJobs = dashboardMapper.getTotalPublicJobsCount("OPEN");
-        long appliedJobsCount = dashboardMapper.countDistinctAppliedJobs(candidateId);
-        long availableJobsCount = totalPublicJobs - appliedJobsCount;
+        long availableJobsCount = dashboardMapper.getAvailableJobsCount(candidateId, "OPEN");
+        long appliedJobsCount = totalPublicJobs - availableJobsCount;
 
         // 5. Build Stats DTO
         CandidateDashboardStats stats = CandidateDashboardStats.builder()

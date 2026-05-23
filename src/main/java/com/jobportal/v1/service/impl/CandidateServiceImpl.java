@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,6 +42,7 @@ public class CandidateServiceImpl implements CandidateService {
     private final CandidateStatusRepository statusRepository;
     private final UserRepository userRepository;
     private final FileUploadUtil fileUploadUtil;
+    private final JobApplicationRepository jobApplicationRepository;
 
     @Override
     @Transactional
@@ -55,6 +57,12 @@ public class CandidateServiceImpl implements CandidateService {
             candidate = candidateRepository.findByIdAndAgencyId(request.getId(), agencyId)
                     .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + request.getId()));
             isUpdate = true;
+
+            // Block modification of self-registered candidates
+            if (!candidate.isAgencyManaged()) {
+                throw new BadRequestException("Agency cannot modify self-registered candidates");
+            }
+
             log.info("Updating candidate: {} {} by agency: {}", request.getFirstName(), request.getLastName(), agencyId);
         } else {
             candidate = new Candidate();
@@ -106,6 +114,11 @@ public class CandidateServiceImpl implements CandidateService {
     public CandidateDocumentResponse uploadCandidateDocument(Long candidateId, Long agencyId, String documentType, MultipartFile file) {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId));
+
+        //   Block document upload for self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot upload documents for self-registered candidates");
+        }
 
         if (file.isEmpty()) {
             throw new BadRequestException("File is empty");
@@ -176,6 +189,11 @@ public class CandidateServiceImpl implements CandidateService {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
+        //   Block viewing documents of self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot view documents of self-registered candidates");
+        }
+
         return documentRepository.findByCandidateId(candidate.getId()).stream()
                 .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
@@ -186,6 +204,11 @@ public class CandidateServiceImpl implements CandidateService {
     public void deleteCandidateDocument(Long candidateId, Long agencyId, Long documentId) {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(candidateId, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+
+        //   Block document deletion for self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot delete documents of self-registered candidates");
+        }
 
         CandidateDocument document = documentRepository.findByIdAndCandidateId(documentId, candidate.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
@@ -202,11 +225,21 @@ public class CandidateServiceImpl implements CandidateService {
     public CandidateResponse getCandidateById(Long id, Long agencyId) {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(id, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+
+        //   Block access to self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot access self-registered candidates");
+        }
+
         return mapToResponse(candidate);
     }
 
     @Override
     public Page<CandidateResponse> getAllCandidates(Long agencyId, Boolean isEnabled, Pageable pageable) {
+        // This method already only returns agency-managed candidates via repository query
+        // The repository method findByAgencyId only returns candidates belonging to that agency
+        // which are implicitly agency-managed. But for safety, we add a type filter.
+
         Page<Candidate> candidates;
 
         if (isEnabled == null) {
@@ -214,6 +247,15 @@ public class CandidateServiceImpl implements CandidateService {
         } else {
             candidates = candidateRepository.findByAgencyIdAndIsEnabled(agencyId, isEnabled, pageable);
         }
+
+        // Filter out any self-registered candidates (defensive programming)
+        candidates = new PageImpl<>(
+                candidates.getContent().stream()
+                        .filter(Candidate::isAgencyManaged)
+                        .collect(Collectors.toList()),
+                pageable,
+                candidates.getTotalElements()
+        );
 
         return candidates.map(this::mapToResponse);
     }
@@ -224,6 +266,28 @@ public class CandidateServiceImpl implements CandidateService {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(id, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
 
+        // Block toggling status for self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot enable/disable self-registered candidates");
+        }
+
+        // Check if we're trying to DISABLE (candidate is currently enabled)
+        if (candidate.getIsEnabled()) {
+            boolean hasActiveApplications = jobApplicationRepository.existsByCandidateIdAndStatusIn(
+                    candidate.getId(),
+                    Arrays.asList(
+                            ApplicationStatus.PENDING,
+                            ApplicationStatus.REVIEWED,
+                            ApplicationStatus.SHORTLISTED
+                    )
+            );
+
+            if (hasActiveApplications) {
+                throw new BadRequestException("Cannot disable candidate with active applications (Pending, Reviewed, or Shortlisted). Please resolve active applications first.");
+            }
+        }
+
+        // Toggle the status
         boolean newStatus = !candidate.getIsEnabled();
         candidate.setIsEnabled(newStatus);
         Candidate saved = candidateRepository.save(candidate);
@@ -239,6 +303,11 @@ public class CandidateServiceImpl implements CandidateService {
     public void deleteCandidate(Long id, Long agencyId) {
         Candidate candidate = candidateRepository.findByIdAndAgencyId(id, agencyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
+
+        // Block deletion of self-registered candidates
+        if (!candidate.isAgencyManaged()) {
+            throw new BadRequestException("Agency cannot delete self-registered candidates");
+        }
 
         List<CandidateDocument> documents = documentRepository.findByCandidateId(id);
         for (CandidateDocument doc : documents) {
@@ -289,7 +358,8 @@ public class CandidateServiceImpl implements CandidateService {
         List<AgencyCandidatesGroupResponse> responseList = new ArrayList<>();
 
         for (User agency : agencies.getContent()) {
-            List<Candidate> candidates = candidateRepository.findByAgencyId(agency.getId());
+            List<Candidate> candidates = candidateRepository.findByAgencyIdAndCandidateType(
+                    agency.getId(), CandidateType.AGENCY_MANAGED);
 
             if (!candidates.isEmpty()) {
                 List<CandidateInfo> candidateInfos = candidates.stream()
@@ -330,6 +400,7 @@ public class CandidateServiceImpl implements CandidateService {
         Candidate candidate = candidateRepository.findById(candidateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found"));
         candidate.setIsEnabled(!candidate.getIsEnabled());
+
         Candidate saved = candidateRepository.save(candidate);
         log.info("Admin toggled candidate status for: {}, new status: {}",
                 candidate.getFullName(), saved.getIsEnabled());

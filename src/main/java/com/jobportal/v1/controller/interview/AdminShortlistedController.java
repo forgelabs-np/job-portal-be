@@ -39,7 +39,7 @@ public class AdminShortlistedController {
             @CurrentUser UserPrincipal admin) {
 
         Page<ShortlistedCandidateMinimalResponse> candidates = shortlistedCandidateService.getShortlistedCandidates(
-                applicationType, jobDemandId, pageable);  // ✅ Pass jobDemandId
+                applicationType, jobDemandId, pageable);  // Pass jobDemandId
         PageRes<ShortlistedCandidateMinimalResponse> response = Pages.of(candidates);
 
         String message = applicationType == null ? "All shortlisted candidates retrieved" :

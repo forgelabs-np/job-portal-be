@@ -10,8 +10,8 @@ import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.AdminDashboardService;
 import com.jobportal.v1.service.AdminService;
-import com.jobportal.v1.service.DashboardService;
 import com.jobportal.v1.service.JobAgencyAssignmentService;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,7 +34,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
-    private final DashboardService dashboardService;
+    private final AdminDashboardService dashboardService;
     private final JobAgencyAssignmentService jobAgencyAssignmentService;
 
     @Operation(summary = "Admin Dashboard", description = "Get dashboard statistics and recent activities")

@@ -4,7 +4,6 @@ import com.jobportal.v1.dto.agency.request.AgencyProfileRequest;
 import com.jobportal.v1.dto.agency.response.*;
 import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.entity.*;
-import com.jobportal.v1.enums.ApplicationStatus;
 import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
@@ -13,7 +12,6 @@ import com.jobportal.v1.service.AgencyProfileService;
 import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,9 +30,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyDocumentRepository agencyDocumentRepository;
     private final UserRepository userRepository;
-    private final CandidateRepository candidateRepository;
-    private final JobApplicationRepository jobApplicationRepository;
-    private final JobAgencyAssignmentRepository assignmentRepository;
     private final FileUploadUtil fileUploadUtil;
 
     @Override
@@ -215,132 +209,6 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         agencyDocumentRepository.delete(document);
 
         log.info("Document deleted for agency: {}, documentId: {}", userId, documentId);
-    }
-
-    @Override
-    public AgencyDashboardResponse getAgencyDashboard(Long agencyId) {
-        // Your existing dashboard implementation (unchanged)
-        List<Candidate> allCandidates = candidateRepository.findByAgencyId(agencyId);
-        Long totalCandidates = (long) allCandidates.size();
-        Long enabledCandidates = allCandidates.stream().filter(Candidate::getIsEnabled).count();
-        Long disabledCandidates = totalCandidates - enabledCandidates;
-
-        List<JobApplication> allApplications = jobApplicationRepository.findByAgencyId(agencyId, PageRequest.of(0, Integer.MAX_VALUE)).getContent();
-        Long totalApplications = (long) allApplications.size();
-        Long pendingApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.PENDING).count();
-        Long reviewedApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.REVIEWED).count();
-        Long shortlistedApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.SHORTLISTED).count();
-        Long rejectedApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.REJECTED).count();
-        Long withdrawnApplications = allApplications.stream().filter(a -> a.getStatus() == ApplicationStatus.WITHDRAWN).count();
-
-        List<JobDemand> assignedJobs = assignmentRepository.findByAgencyIdAndIsEnabledTrue(agencyId).stream()
-                .map(assignment -> assignment.getJobDemand())
-                .filter(job -> job.getIsActive())
-                .collect(Collectors.toList());
-        Long totalAssignedJobs = (long) assignedJobs.size();
-        Long openJobs = assignedJobs.stream().filter(job -> job.getStatus().name().equals("OPEN")).count();
-        Long completedJobs = assignedJobs.stream().filter(job -> job.getStatus().name().equals("COMPLETED")).count();
-
-        Double approvalRate = totalApplications > 0
-                ? (shortlistedApplications.doubleValue() / totalApplications.doubleValue()) * 100
-                : 0.0;
-
-        AgencyDashboardStats stats = AgencyDashboardStats.builder()
-                .totalCandidates(totalCandidates)
-                .enabledCandidates(enabledCandidates)
-                .disabledCandidates(disabledCandidates)
-                .totalApplications(totalApplications)
-                .pendingApplications(pendingApplications)
-                .reviewedApplications(reviewedApplications)
-                .shortlistedApplications(shortlistedApplications)
-                .rejectedApplications(rejectedApplications)
-                .withdrawnApplications(withdrawnApplications)
-                .assignedJobs(totalAssignedJobs)
-                .openJobs(openJobs)
-                .completedJobs(completedJobs)
-                .approvalRate(Math.round(approvalRate * 100.0) / 100.0)
-                .build();
-
-        List<AgencyRecentApplication> recentApplications = allApplications.stream()
-                .sorted((a, b) -> b.getAppliedAt().compareTo(a.getAppliedAt()))
-                .limit(5)
-                .map(app -> AgencyRecentApplication.builder()
-                        .id(app.getId())
-                        .jobTitle(app.getJobDemand().getTitle())
-                        .candidateName(app.getCandidate().getFullName())
-                        .status(app.getStatus().name())
-                        .appliedAt(app.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                        .build())
-                .collect(Collectors.toList());
-
-        List<AgencyRecentCandidate> recentCandidates = allCandidates.stream()
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .limit(5)
-                .map(candidate -> AgencyRecentCandidate.builder()
-                        .id(candidate.getId())
-                        .fullName(candidate.getFullName())
-                        .trade(candidate.getTrade())
-                        .isEnabled(candidate.getIsEnabled())
-                        .createdAt(candidate.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                        .build())
-                .collect(Collectors.toList());
-
-        List<AgencyRecentJob> recentJobs = assignedJobs.stream()
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .limit(5)
-                .map(job -> AgencyRecentJob.builder()
-                        .id(job.getId())
-                        .title(job.getTitle())
-                        .country(job.getCountry() != null ? job.getCountry().getName() : null)
-                        .totalSlots(job.getTotalSlots())
-                        .remainingSlots(job.getRemainingSlots())
-                        .status(job.getStatus().name())
-                        .build())
-                .collect(Collectors.toList());
-
-        AgencyApplicationStatusDistribution statusDistribution = AgencyApplicationStatusDistribution.builder()
-                .pending(pendingApplications)
-                .reviewed(reviewedApplications)
-                .shortlisted(shortlistedApplications)
-                .rejected(rejectedApplications)
-                .withdrawn(withdrawnApplications)
-                .build();
-
-        List<String> days = new ArrayList<>();
-        List<Long> applicationsSubmitted = new ArrayList<>();
-        List<Long> applicationsShortlisted = new ArrayList<>();
-
-        for (int i = 6; i >= 0; i--) {
-            LocalDateTime dayStart = LocalDateTime.now().minusDays(i).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
-            days.add(dayStart.format(DateTimeFormatter.ofPattern("EEE")));
-
-            Long submittedCount = allApplications.stream()
-                    .filter(a -> a.getAppliedAt().isAfter(dayStart) && a.getAppliedAt().isBefore(dayEnd))
-                    .count();
-            applicationsSubmitted.add(submittedCount);
-
-            Long shortlistedCount = allApplications.stream()
-                    .filter(a -> a.getStatus() == ApplicationStatus.SHORTLISTED)
-                    .filter(a -> a.getUpdatedAt().isAfter(dayStart) && a.getUpdatedAt().isBefore(dayEnd))
-                    .count();
-            applicationsShortlisted.add(shortlistedCount);
-        }
-
-        AgencyWeeklyActivity weeklyActivity = AgencyWeeklyActivity.builder()
-                .days(days)
-                .applicationsSubmitted(applicationsSubmitted)
-                .applicationsShortlisted(applicationsShortlisted)
-                .build();
-
-        return AgencyDashboardResponse.builder()
-                .stats(stats)
-                .recentApplications(recentApplications)
-                .recentCandidates(recentCandidates)
-                .recentJobs(recentJobs)
-                .statusDistribution(statusDistribution)
-                .weeklyActivity(weeklyActivity)
-                .build();
     }
 
     private boolean isProfileDataComplete(AgencyProfileRequest request) {

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jobportal.v1.mapper.CandidateDashboardMapper">
+
+    <!-- 1. Get candidate basic info -->
+    <select id="getCandidateInfo" resultType="java.util.HashMap">
+        SELECT
+            c.id as candidate_id,
+            c.profile_complete as is_profile_complete,
+            c.onboarding_stage,
+            c.created_at
+        FROM candidates c
+        WHERE c.user_id = #{userId}
+    </select>
+
+    <!-- 2. Document stats in ONE query -->
+    <select id="getDocumentStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
+            SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected
+        FROM candidate_documents
+        WHERE candidate_id = #{candidateId}
+    </select>
+
+    <!-- 3. Application status counts - GROUP BY in DB -->
+    <select id="getApplicationStatusCounts" resultType="java.util.HashMap">
+        SELECT
+            status,
+            COUNT(*) as count
+        FROM job_applications
+        WHERE candidate_id = #{candidateId}
+        GROUP BY status
+    </select>
+
+    <!-- 4. Count distinct applied jobs -->
+    <select id="countDistinctAppliedJobs" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT job_demand_id)
+        FROM job_applications
+        WHERE candidate_id = #{candidateId}
+    </select>
+
+    <!-- 5. Recent applications with JOINs - LIMIT in DB -->
+    <select id="getRecentApplications" resultType="java.util.HashMap">
+        SELECT
+            ja.id,
+            jd.title as job_title,
+            ctry.name as country,
+            jd.city,
+            jd.salary_amount,
+            jd.salary_currency,
+            ja.status,
+            ja.applied_at
+        FROM job_applications ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+                 LEFT JOIN countries ctry ON jd.country_id = ctry.id
+        WHERE ja.candidate_id = #{candidateId}
+        ORDER BY ja.applied_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 6. Recommended jobs - NOT EXISTS query (much faster!) -->
+    <select id="getRecommendedJobs" resultType="java.util.HashMap">
+        SELECT
+            jd.id,
+            jd.title,
+            ctry.name as country,
+            jd.city,
+            jd.salary_amount,
+            jd.salary_currency,
+            jd.total_slots,
+            jd.remaining_slots,
+            jd.deadline
+        FROM job_demands jd
+                 LEFT JOIN countries ctry ON jd.country_id = ctry.id
+        WHERE jd.is_public = true
+          AND jd.status = #{status}
+          AND jd.is_active = true
+          AND NOT EXISTS (
+            SELECT 1 FROM job_applications ja
+            WHERE ja.job_demand_id = jd.id
+              AND ja.candidate_id = #{candidateId}
+        )
+        ORDER BY jd.created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 7. Weekly activity - GROUP BY date -->
+    <select id="getWeeklyActivity" resultType="java.util.HashMap">
+        SELECT
+            DATE(ja.applied_at) as date,
+            COUNT(*) as count
+        FROM job_applications ja
+        WHERE ja.candidate_id = #{candidateId}
+          AND ja.applied_at >= #{startDate}
+        GROUP BY DATE(ja.applied_at)
+        ORDER BY date DESC
+    </select>
+
+    <!-- 8. Document summary list -->
+    <select id="getDocumentSummary" resultType="java.util.HashMap">
+        SELECT
+            document_type,
+            document_name,
+            status,
+            uploaded_at
+        FROM candidate_documents
+        WHERE candidate_id = #{candidateId}
+        ORDER BY uploaded_at DESC
+    </select>
+
+    <!-- 9. Total public jobs count -->
+    <select id="getTotalPublicJobsCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM job_demands
+        WHERE is_public = true
+          AND status = #{status}
+          AND is_active = true
+    </select>
+
+</mapper>

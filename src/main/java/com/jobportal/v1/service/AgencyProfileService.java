@@ -1,7 +1,6 @@
 package com.jobportal.v1.service;
 
 import com.jobportal.v1.dto.agency.request.AgencyProfileRequest;
-import com.jobportal.v1.dto.agency.response.AgencyDashboardResponse;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +25,4 @@ public interface AgencyProfileService {
 
     void deleteDocument(Long userId, Long documentId);
 
-    // Dashboard
-    AgencyDashboardResponse getAgencyDashboard(Long agencyId);
 }

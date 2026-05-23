@@ -8,6 +8,7 @@ import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.AgencyDashboardService;
 import com.jobportal.v1.service.AgencyProfileService;
 import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,13 +33,14 @@ import java.util.List;
 public class AgencyController {
 
     private final AgencyProfileService agencyProfileService;
+    private final AgencyDashboardService agencyDashboardService;
 
     @Operation(summary = "Agency Dashboard", description = "Get dashboard statistics and activities for agency")
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<AgencyDashboardResponse>> getDashboard(
             @CurrentUser UserPrincipal agency) {
 
-        AgencyDashboardResponse response = agencyProfileService.getAgencyDashboard(agency.getId());
+        AgencyDashboardResponse response = agencyDashboardService.getAgencyDashboard(agency.getId());
         return ResponseUtil.ok("Dashboard data retrieved", response);
     }
 

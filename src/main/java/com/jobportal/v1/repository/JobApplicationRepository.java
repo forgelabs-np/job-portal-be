@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -26,8 +28,6 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     Page<JobApplication> findByAgencyIdAndJobDemandIdAndStatus(Long agencyId, Long jobDemandId, ApplicationStatus status, Pageable pageable);
 
     Optional<JobApplication> findByIdAndAgencyId(Long id, Long agencyId);
-
-    boolean existsByJobDemandIdAndCandidateId(Long jobDemandId, Long candidateId);
 
     Page<JobApplication> findByCandidateId(Long candidateId, Pageable pageable);
 

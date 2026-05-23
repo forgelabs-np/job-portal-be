@@ -39,6 +39,13 @@ app:
     resend-cooldown-seconds: 120
   max-login-attempts: 5
   lock-duration-minutes: 30
+  dashboard:
+    recent-limit: 5
+    recommended-limit: 5
+    weekly-days: 7
+    date-time-format: "yyyy-MM-dd HH:mm:ss"
+    day-format: "EEE"
+    date-format: "yyyy-MM-dd"
 
 management:
   endpoints:

@@ -36,16 +36,6 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
 
     boolean existsByUserId(Long userId);
 
-    // Admin methods
-    @Query("SELECT c FROM Candidate c WHERE c.candidateType = :type AND c.agency.id = :agencyId")
-    Page<Candidate> findByAgencyIdAndCandidateType(@Param("agencyId") Long agencyId, @Param("type") CandidateType type, Pageable pageable);
-
-    long countByCandidateType(CandidateType candidateType);
-
-    long countByCandidateTypeAndIsEnabled(CandidateType candidateType, Boolean isEnabled);
-
-    long countByCandidateTypeAndProfileCompleteTrue(CandidateType candidateType);
-
     @Query("SELECT " +
             "COUNT(c) as totalSelfCandidates, " +
             "SUM(CASE WHEN c.isEnabled = true THEN 1 ELSE 0 END) as activeSelfCandidates, " +

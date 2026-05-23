@@ -12,6 +12,7 @@ import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.JobApplicationService;
 import com.jobportal.v1.service.ShortlistedCandidateService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,7 +34,7 @@ import org.springframework.web.bind.annotation.*;
 public class AgencyApplicationController {
 
     private final JobApplicationService jobApplicationService;
-    private final ShortlistedCandidateService shortlistedCandidateService;  // Add MyBatis service
+    private final ShortlistedCandidateService shortlistedCandidateService;
 
     @Operation(summary = "Apply for Job", description = "Agency applies for a job using a candidate")
     @PostMapping
@@ -42,7 +43,7 @@ public class AgencyApplicationController {
             @CurrentUser UserPrincipal agency) {
 
         JobApplicationResponse response = jobApplicationService.applyForJob(request.getData(), agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Application submitted successfully", response));
+        return ResponseUtil.ok("Application submitted successfully", response);
     }
 
     @Operation(summary = "Get My Applications", description = "Get all applications submitted by this agency (filter by status)")
@@ -57,7 +58,7 @@ public class AgencyApplicationController {
                 agency.getId(), jobDemandId, status, pageable);
         PageRes<JobApplicationResponse> response = Pages.of(applications);
 
-        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
+        return ResponseUtil.ok("Applications retrieved", response);
     }
 
     @Operation(summary = "Get Agency's Shortlisted Candidates",
@@ -71,7 +72,7 @@ public class AgencyApplicationController {
                 agency.getId(), pageable);
 
         PageRes<ShortlistedCandidateMinimalResponse> response = Pages.of(candidates);
-        return ResponseEntity.ok(ApiResponse.success("Agency shortlisted candidates retrieved", response));
+        return ResponseUtil.ok("Agency shortlisted candidates retrieved", response);
     }
 
     @Operation(summary = "Get Application by ID", description = "Get specific application details")
@@ -81,7 +82,7 @@ public class AgencyApplicationController {
             @CurrentUser UserPrincipal agency) {
 
         AgencyJobApplicationResponse response = jobApplicationService.getMyApplicationById(applicationId, agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Application retrieved", response));
+        return ResponseUtil.ok("Application retrieved", response);
     }
 
     @Operation(summary = "Withdraw Application", description = "Withdraw a pending application")
@@ -91,6 +92,6 @@ public class AgencyApplicationController {
             @CurrentUser UserPrincipal agency) {
 
         JobApplicationResponse response = jobApplicationService.withdrawApplication(applicationId, agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Application withdrawn successfully", response));
+        return ResponseUtil.ok("Application withdrawn successfully", response);
     }
 }

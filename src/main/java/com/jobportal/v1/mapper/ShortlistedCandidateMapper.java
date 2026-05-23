@@ -13,11 +13,15 @@ public interface ShortlistedCandidateMapper {
     // Admin methods (all candidates)
     List<ShortlistedCandidateMinimalResponse> getShortlistedCandidatesMinimal(
             @Param("applicationType") String applicationType,
+            @Param("jobDemandId") Long jobDemandId,
             @Param("limit") int limit,
             @Param("offset") int offset
     );
 
-    long countShortlistedCandidates(@Param("applicationType") String applicationType);
+    long countShortlistedCandidates(
+            @Param("applicationType") String applicationType,
+            @Param("jobDemandId") Long jobDemandId
+    );
 
     // Agency-specific methods
     List<ShortlistedCandidateMinimalResponse> getShortlistedCandidatesForAgency(

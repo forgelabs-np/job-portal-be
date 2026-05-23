@@ -1,23 +1,17 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.dashboard.response.candidate.*;
-import com.jobportal.v1.entity.*;
-import com.jobportal.v1.enums.ApplicationStatus;
-import com.jobportal.v1.enums.ApprovalStatus;
-import com.jobportal.v1.enums.JobStatus;
 import com.jobportal.v1.exception.ResourceNotFoundException;
-import com.jobportal.v1.repository.*;
+import com.jobportal.v1.mapper.CandidateDashboardMapper;
 import com.jobportal.v1.service.CandidateDashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,59 +19,81 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CandidateDashboardServiceImpl implements CandidateDashboardService {
 
-    private final CandidateRepository candidateRepository;
-    private final CandidateDocumentRepository documentRepository;
-    private final JobApplicationRepository jobApplicationRepository;
-    private final JobDemandRepository jobDemandRepository;
+    private final CandidateDashboardMapper dashboardMapper;
+
+    @Value("${app.dashboard.recent-limit:5}")
+    private int recentLimit;
+
+    @Value("${app.dashboard.recommended-limit:5}")
+    private int recommendedLimit;
+
+    @Value("${app.dashboard.weekly-days:7}")
+    private int weeklyDays;
+
+    @Value("${app.dashboard.day-format:EEE}")
+    private String dayFormat;
+
+    private DateTimeFormatter getDayFormatter() {
+        return DateTimeFormatter.ofPattern(dayFormat);
+    }
 
     @Override
     public CandidateDashboardResponse getCandidateDashboard(Long userId) {
-        // Get candidate profile
-        Candidate candidate = candidateRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Candidate profile not found"));
+        long startTime = System.currentTimeMillis();
 
-        // Document Stats
-        List<CandidateDocument> documents = documentRepository.findByCandidateId(candidate.getId());
-        long documentsUploaded = documents.size();
-        long documentsApproved = documents.stream()
-                .filter(doc -> doc.getStatus() == ApprovalStatus.APPROVED).count();
-        long documentsPending = documents.stream()
-                .filter(doc -> doc.getStatus() == ApprovalStatus.PENDING).count();
-        long documentsRejected = documents.stream()
-                .filter(doc -> doc.getStatus() == ApprovalStatus.REJECTED).count();
-        boolean allDocumentsApproved = documentsUploaded > 0 && documents.stream()
-                .allMatch(doc -> doc.getStatus() == ApprovalStatus.APPROVED);
+        // 1. Get candidate info
+        Map<String, Object> candidateInfo = dashboardMapper.getCandidateInfo(userId);
+        if (candidateInfo == null || candidateInfo.isEmpty()) {
+            throw new ResourceNotFoundException("Candidate profile not found");
+        }
 
-        // ✅ Fix: Get all applications without pageable - use Pageable.unpaged() or large page size
-        Pageable unpaged = PageRequest.of(0, Integer.MAX_VALUE);
-        List<JobApplication> applications = jobApplicationRepository.findByCandidateId(candidate.getId(), unpaged).getContent();
+        Long candidateId = ((Number) candidateInfo.get("candidate_id")).longValue();
+        boolean isProfileComplete = candidateInfo.get("is_profile_complete") != null &&
+                (Boolean) candidateInfo.get("is_profile_complete");
+        String onboardingStage = candidateInfo.get("onboarding_stage") != null ?
+                candidateInfo.get("onboarding_stage").toString() : "PROFILE";
 
-        long totalApplications = applications.size();
-        long pendingApplications = applications.stream()
-                .filter(a -> a.getStatus() == ApplicationStatus.PENDING).count();
-        long reviewedApplications = applications.stream()
-                .filter(a -> a.getStatus() == ApplicationStatus.REVIEWED).count();
-        long shortlistedApplications = applications.stream()
-                .filter(a -> a.getStatus() == ApplicationStatus.SHORTLISTED).count();
-        long rejectedApplications = applications.stream()
-                .filter(a -> a.getStatus() == ApplicationStatus.REJECTED).count();
-        long withdrawnApplications = applications.stream()
-                .filter(a -> a.getStatus() == ApplicationStatus.WITHDRAWN).count();
+        // 2. Document stats
+        Map<String, Object> docStats = dashboardMapper.getDocumentStats(candidateId);
+        long documentsUploaded = docStats != null && docStats.get("total") != null ?
+                ((Number) docStats.get("total")).longValue() : 0L;
+        long documentsApproved = docStats != null && docStats.get("approved") != null ?
+                ((Number) docStats.get("approved")).longValue() : 0L;
+        long documentsPending = docStats != null && docStats.get("pending") != null ?
+                ((Number) docStats.get("pending")).longValue() : 0L;
+        long documentsRejected = docStats != null && docStats.get("rejected") != null ?
+                ((Number) docStats.get("rejected")).longValue() : 0L;
 
-        // Job Stats
-        long totalPublicJobs = jobDemandRepository.countByIsPublicTrueAndStatusAndIsActiveTrue(JobStatus.OPEN);
-        long appliedJobsCount = applications.stream()
-                .map(JobApplication::getJobDemand)
-                .map(JobDemand::getId)
-                .distinct()
-                .count();
+        boolean allDocumentsApproved = documentsUploaded > 0 && documentsApproved == documentsUploaded;
+
+        // 3. Application status counts
+        List<Map<String, Object>> statusCounts = dashboardMapper.getApplicationStatusCounts(candidateId);
+        long totalApplications = 0L, pendingApplications = 0L, reviewedApplications = 0L;
+        long shortlistedApplications = 0L, rejectedApplications = 0L, withdrawnApplications = 0L;
+
+        for (Map<String, Object> row : statusCounts) {
+            String status = row.get("status").toString();
+            Long count = ((Number) row.get("count")).longValue();
+            totalApplications += count;
+            switch (status) {
+                case "PENDING": pendingApplications = count; break;
+                case "REVIEWED": reviewedApplications = count; break;
+                case "SHORTLISTED": shortlistedApplications = count; break;
+                case "REJECTED": rejectedApplications = count; break;
+                case "WITHDRAWN": withdrawnApplications = count; break;
+                default: break;
+            }
+        }
+
+        // 4. Job stats
+        long totalPublicJobs = dashboardMapper.getTotalPublicJobsCount("OPEN");
+        long appliedJobsCount = dashboardMapper.countDistinctAppliedJobs(candidateId);
         long availableJobsCount = totalPublicJobs - appliedJobsCount;
 
-        // Build Stats
+        // 5. Build Stats DTO
         CandidateDashboardStats stats = CandidateDashboardStats.builder()
-                .isProfileComplete(candidate.isProfileComplete())
-                .onboardingStage(candidate.getOnboardingStage() != null ?
-                        candidate.getOnboardingStage().name() : "PROFILE")
+                .isProfileComplete(isProfileComplete)
+                .onboardingStage(onboardingStage)
                 .documentsUploaded((int) documentsUploaded)
                 .documentsApproved((int) documentsApproved)
                 .documentsPending((int) documentsPending)
@@ -94,60 +110,50 @@ public class CandidateDashboardServiceImpl implements CandidateDashboardService 
                 .availableJobsCount(availableJobsCount)
                 .build();
 
-        // Recent Applications (last 5)
-        List<CandidateRecentApplication> recentApplications = applications.stream()
-                .sorted((a, b) -> b.getAppliedAt().compareTo(a.getAppliedAt()))
-                .limit(5)
+        // 6. Recent applications
+        List<Map<String, Object>> recentAppsData = dashboardMapper.getRecentApplications(candidateId, recentLimit);
+        List<CandidateRecentApplication> recentApplications = recentAppsData.stream()
                 .map(app -> CandidateRecentApplication.builder()
-                        .id(app.getId())
-                        .jobTitle(app.getJobDemand().getTitle())
-                        .country(app.getJobDemand().getCountry() != null ?
-                                app.getJobDemand().getCountry().getName() : null)
-                        .city(app.getJobDemand().getCity())
-                        .salaryAmount(app.getJobDemand().getSalaryAmount())
-                        .salaryCurrency(app.getJobDemand().getSalaryCurrency())
-                        .status(app.getStatus().name())
-                        .appliedAt(app.getAppliedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                        .id(((Number) app.get("id")).longValue())
+                        .jobTitle(app.get("job_title") != null ? app.get("job_title").toString() : "")
+                        .country(app.get("country") != null ? app.get("country").toString() : null)
+                        .city(app.get("city") != null ? app.get("city").toString() : null)
+                        .salaryAmount(app.get("salary_amount") != null ? ((Number) app.get("salary_amount")).doubleValue() : null)
+                        .salaryCurrency(app.get("salary_currency") != null ? app.get("salary_currency").toString() : null)
+                        .status(app.get("status").toString())
+                        .appliedAt(app.get("applied_at") != null ? app.get("applied_at").toString() : "")
                         .build())
                 .collect(Collectors.toList());
 
-        // Recommended Jobs (public jobs candidate hasn't applied to, limit 5)
-        Pageable pageable = PageRequest.of(0, 10);
-        List<JobDemand> allPublicJobs = jobDemandRepository.findByIsPublicTrueAndStatusAndIsActiveTrue(
-                JobStatus.OPEN, pageable).getContent();
-
-        List<Long> appliedJobIds = applications.stream()
-                .map(a -> a.getJobDemand().getId())
-                .collect(Collectors.toList());
-
-        List<CandidateRecentJob> recommendedJobs = allPublicJobs.stream()
-                .filter(job -> !appliedJobIds.contains(job.getId()))
-                .limit(5)
+        // 7. Recommended jobs
+        List<Map<String, Object>> recommendedJobsData = dashboardMapper.getRecommendedJobs(
+                candidateId, "OPEN", recommendedLimit);
+        List<CandidateRecentJob> recommendedJobs = recommendedJobsData.stream()
                 .map(job -> CandidateRecentJob.builder()
-                        .id(job.getId())
-                        .title(job.getTitle())
-                        .country(job.getCountry() != null ? job.getCountry().getName() : null)
-                        .city(job.getCity())
-                        .salaryAmount(job.getSalaryAmount())
-                        .salaryCurrency(job.getSalaryCurrency())
-                        .totalSlots(job.getTotalSlots())
-                        .remainingSlots(job.getRemainingSlots())
-                        .deadline(job.getDeadline() != null ?
-                                job.getDeadline().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null)
+                        .id(((Number) job.get("id")).longValue())
+                        .title(job.get("title").toString())
+                        .country(job.get("country") != null ? job.get("country").toString() : null)
+                        .city(job.get("city") != null ? job.get("city").toString() : null)
+                        .salaryAmount(job.get("salary_amount") != null ? ((Number) job.get("salary_amount")).doubleValue() : null)
+                        .salaryCurrency(job.get("salary_currency") != null ? job.get("salary_currency").toString() : null)
+                        .totalSlots(job.get("total_slots") != null ? ((Number) job.get("total_slots")).intValue() : null)
+                        .remainingSlots(job.get("remaining_slots") != null ? ((Number) job.get("remaining_slots")).intValue() : null)
+                        .deadline(job.get("deadline") != null ? job.get("deadline").toString() : null)
                         .build())
                 .collect(Collectors.toList());
 
-        // Document Summary
-        List<CandidateDocumentSummary> documentSummary = documents.stream()
+        // 8. Document summary
+        List<Map<String, Object>> documentsData = dashboardMapper.getDocumentSummary(candidateId);
+        List<CandidateDocumentSummary> documentSummary = documentsData.stream()
                 .map(doc -> CandidateDocumentSummary.builder()
-                        .documentType(doc.getDocumentType().name())
-                        .documentName(doc.getDocumentName())
-                        .status(doc.getStatus() != null ? doc.getStatus().name() : "PENDING")
-                        .uploadedAt(doc.getUploadedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                        .documentType(doc.get("document_type").toString())
+                        .documentName(doc.get("document_name") != null ? doc.get("document_name").toString() : "")
+                        .status(doc.get("status").toString())
+                        .uploadedAt(doc.get("uploaded_at") != null ? doc.get("uploaded_at").toString() : "")
                         .build())
                 .collect(Collectors.toList());
 
-        // Status Distribution
+        // 9. Status Distribution
         ApplicationStatusDistribution statusDistribution = ApplicationStatusDistribution.builder()
                 .pending(pendingApplications)
                 .reviewed(reviewedApplications)
@@ -156,25 +162,33 @@ public class CandidateDashboardServiceImpl implements CandidateDashboardService 
                 .withdrawn(withdrawnApplications)
                 .build();
 
-        // Weekly Activity (last 7 days)
+        // 10. Weekly activity
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(weeklyDays).withHour(0).withMinute(0).withSecond(0);
+        List<Map<String, Object>> weeklyData = dashboardMapper.getWeeklyActivity(candidateId, sevenDaysAgo);
+
+        Map<String, Long> weeklyMap = new HashMap<>();
+        for (Map<String, Object> row : weeklyData) {
+            String date = row.get("date").toString();
+            Long count = ((Number) row.get("count")).longValue();
+            weeklyMap.put(date, count);
+        }
+
         List<String> days = new ArrayList<>();
         List<Long> applicationsSubmitted = new ArrayList<>();
-
-        for (int i = 6; i >= 0; i--) {
-            LocalDateTime dayStart = LocalDateTime.now().minusDays(i).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
-            days.add(dayStart.format(DateTimeFormatter.ofPattern("EEE")));
-
-            Long submittedCount = applications.stream()
-                    .filter(a -> a.getAppliedAt().isAfter(dayStart) && a.getAppliedAt().isBefore(dayEnd))
-                    .count();
-            applicationsSubmitted.add(submittedCount);
+        for (int i = weeklyDays - 1; i >= 0; i--) {
+            LocalDateTime dayStart = LocalDateTime.now().minusDays(i);
+            String dayKey = dayStart.toLocalDate().toString();
+            days.add(dayStart.format(getDayFormatter()));
+            applicationsSubmitted.add(weeklyMap.getOrDefault(dayKey, 0L));
         }
 
         WeeklyApplicationActivity weeklyActivity = WeeklyApplicationActivity.builder()
                 .days(days)
                 .applicationsSubmitted(applicationsSubmitted)
                 .build();
+
+        long endTime = System.currentTimeMillis();
+        log.info("Candidate Dashboard loaded in {} ms for user: {}", (endTime - startTime), userId);
 
         return CandidateDashboardResponse.builder()
                 .stats(stats)

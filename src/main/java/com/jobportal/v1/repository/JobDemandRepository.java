@@ -2,6 +2,9 @@ package com.jobportal.v1.repository;
 
 import com.jobportal.v1.entity.JobDemand;
 import com.jobportal.v1.enums.JobStatus;
+import com.jobportal.v1.repository.projection.DailyJobCountProjection;
+import com.jobportal.v1.repository.projection.JobAggregateStatsProjection;
+import com.jobportal.v1.repository.projection.JobStatusCountProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -58,4 +61,15 @@ public interface JobDemandRepository extends JpaRepository<JobDemand, Long> {
     @Query("SELECT COUNT(j) FROM JobDemand j WHERE j.isPublic = true AND j.status = :status AND j.isActive = true")
     long countByIsPublicTrueAndStatusAndIsActiveTrue(@Param("status") JobStatus status);
 
+    @Query("SELECT j.status as status, COUNT(j) as count FROM JobDemand j WHERE j.isActive = true GROUP BY j.status")
+    List<JobStatusCountProjection> getJobStatusCounts();
+
+    @Query("SELECT COUNT(j) as totalJobs, COALESCE(SUM(j.totalSlots), 0) as totalSlots, COALESCE(SUM(j.filledSlots), 0) as filledSlots FROM JobDemand j WHERE j.isActive = true")
+    JobAggregateStatsProjection getJobAggregateStats();
+
+    @Query("SELECT FUNCTION('DATE', j.createdAt) as date, COUNT(j) as count " +
+            "FROM JobDemand j " +
+            "WHERE j.createdAt >= :startDate AND j.isActive = true " +
+            "GROUP BY FUNCTION('DATE', j.createdAt)")
+    List<DailyJobCountProjection> getDailyJobCounts(@Param("startDate") LocalDateTime startDate);
 }

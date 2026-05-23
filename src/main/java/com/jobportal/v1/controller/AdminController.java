@@ -10,9 +10,10 @@ import com.jobportal.v1.dto.agency.response.AgencyApprovalResponse;
 import com.jobportal.v1.dto.agency.response.AgencyJobDetailResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.AdminDashboardService;
 import com.jobportal.v1.service.AdminService;
-import com.jobportal.v1.service.DashboardService;
 import com.jobportal.v1.service.JobAgencyAssignmentService;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,15 +34,14 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
-    private final DashboardService dashboardService;
+    private final AdminDashboardService dashboardService;
     private final JobAgencyAssignmentService jobAgencyAssignmentService;
-
 
     @Operation(summary = "Admin Dashboard", description = "Get dashboard statistics and recent activities")
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard() {
         AdminDashboardResponse response = dashboardService.getAdminDashboard();
-        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+        return ResponseUtil.ok("Dashboard data retrieved", response);
     }
 
     @Operation(summary = "Process Agency Action", description = "Approve or reject a pending agency")
@@ -51,18 +51,8 @@ public class AdminController {
             @CurrentUser UserPrincipal admin) {
 
         AgencyApprovalResponse response = adminService.processAgencyAction(request.getData(), admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Agency " + request.getData().getAction().toLowerCase() + "d successfully", response));
+        return ResponseUtil.ok("Agency " + request.getData().getAction().toLowerCase() + "d successfully", response);
     }
-
-//    @Operation(summary = "Get Agencies by Status", description = "Get all agencies filtered by approval status")
-//    @GetMapping("/agencies")
-//    public ResponseEntity<ApiResponse<List<AgencyApprovalResponse>>> getAgenciesByStatus(
-//            @RequestParam(required = false) ApprovalStatus status) {
-//
-//        List<AgencyApprovalResponse> response = adminService.getAgenciesByStatus(status);
-//        String message = status == null ? "All agencies retrieved" : status + " agencies retrieved";
-//        return ResponseEntity.ok(ApiResponse.success(message, response));
-//    }
 
     @Operation(summary = "Assign Agencies to Job", description = "Assign multiple agencies to a job demand")
     @PostMapping("/jobs/assign")
@@ -71,7 +61,7 @@ public class AdminController {
             @CurrentUser UserPrincipal admin) {
 
         List<JobAgencyAssignmentResponse> response = jobAgencyAssignmentService.assignAgenciesToJob(request.getData(), admin.getId());
-        return ResponseEntity.ok(ApiResponse.success("Agencies assigned successfully", response));
+        return ResponseUtil.ok("Agencies assigned successfully", response);
     }
 
     @Operation(summary = "Remove Agency from Job", description = "Remove an agency from a job demand")
@@ -81,7 +71,7 @@ public class AdminController {
             @PathVariable Long agencyId) {
 
         jobAgencyAssignmentService.removeAgencyFromJob(jobDemandId, agencyId);
-        return ResponseEntity.ok(ApiResponse.success("Agency removed from job successfully", null));
+        return ResponseUtil.ok("Agency removed from job successfully");
     }
 
     @Operation(summary = "Toggle Agency Job Access", description = "Enable or disable agency access to a job")
@@ -92,7 +82,7 @@ public class AdminController {
             @RequestParam Boolean enabled) {
 
         JobAgencyAssignmentResponse response = jobAgencyAssignmentService.toggleAgencyJobAccess(jobDemandId, agencyId, enabled);
-        return ResponseEntity.ok(ApiResponse.success("Access toggled successfully", response));
+        return ResponseUtil.ok("Access toggled successfully", response);
     }
 
     @Operation(summary = "Get Agencies by Job", description = "Get all agencies assigned to a job")
@@ -101,7 +91,7 @@ public class AdminController {
             @PathVariable Long jobDemandId) {
 
         List<JobAgencyAssignmentResponse> response = jobAgencyAssignmentService.getAgenciesByJob(jobDemandId);
-        return ResponseEntity.ok(ApiResponse.success("Agencies retrieved", response));
+        return ResponseUtil.ok("Agencies retrieved", response);
     }
 
     @Operation(summary = "Get Jobs by Agency", description = "Get all jobs assigned to an agency with job details")
@@ -110,6 +100,6 @@ public class AdminController {
             @PathVariable Long agencyId) {
 
         List<AgencyJobDetailResponse> response = jobAgencyAssignmentService.getJobsByAgency(agencyId);
-        return ResponseEntity.ok(ApiResponse.success("Jobs retrieved", response));
+        return ResponseUtil.ok("Jobs retrieved", response);
     }
 }

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jobportal.v1.mapper.AdminDashboardMapper">
+
+    <!-- 1. Job aggregate stats -->
+    <select id="getJobAggregateStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(*) as total_jobs,
+            COALESCE(SUM(total_slots), 0) as total_slots,
+            COALESCE(SUM(filled_slots), 0) as filled_slots
+        FROM job_demands
+        WHERE is_active = true
+    </select>
+
+    <!-- 2. Candidate aggregate stats -->
+    <select id="getCandidateAggregateStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(*) as total_self_candidates,
+            SUM(CASE WHEN is_enabled = true THEN 1 ELSE 0 END) as active_self_candidates,
+            SUM(CASE WHEN is_enabled = false THEN 1 ELSE 0 END) as inactive_self_candidates,
+            SUM(CASE WHEN profile_complete = true THEN 1 ELSE 0 END) as complete_profile_self_candidates
+        FROM candidates
+        WHERE candidate_type = #{candidateType}
+    </select>
+
+    <!-- 3. Agency aggregate stats -->
+    <select id="getAgencyAggregateStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(u.id) as total_agencies,
+            SUM(CASE WHEN u.approval_status = 'PENDING' THEN 1 ELSE 0 END) as pending_agencies,
+            SUM(CASE WHEN u.approval_status = 'APPROVED' THEN 1 ELSE 0 END) as approved_agencies,
+            SUM(CASE WHEN u.approval_status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_agencies
+        FROM users u
+                 INNER JOIN user_roles ur ON u.id = ur.user_id
+        WHERE ur.role = #{role}
+    </select>
+
+    <!-- 4. Job status distribution -->
+    <select id="getJobStatusCounts" resultType="java.util.HashMap">
+        SELECT
+            status,
+            COUNT(*) as count
+        FROM job_demands
+        WHERE is_active = true
+        GROUP BY status
+    </select>
+
+    <!-- 5. Recent jobs with country (LIMIT) -->
+    <select id="getRecentJobs" resultType="java.util.HashMap">
+        SELECT
+            jd.id,
+            jd.title,
+            c.name as country,
+            jd.total_slots,
+            jd.filled_slots,
+            jd.remaining_slots,
+            jd.applied_count,
+            jd.status,
+            jd.created_at
+        FROM job_demands jd
+                 LEFT JOIN countries c ON jd.country_id = c.id
+        WHERE jd.is_active = true
+        ORDER BY jd.created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 6. Recent agencies (LIMIT) -->
+    <select id="getRecentAgencies" resultType="java.util.HashMap">
+        SELECT
+            u.id,
+            u.full_name,
+            u.email,
+            u.approval_status,
+            u.created_at
+        FROM users u
+                 INNER JOIN user_roles ur ON u.id = ur.user_id
+        WHERE ur.role = #{role}
+        ORDER BY u.created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 7. Daily job counts (last 7 days) -->
+    <select id="getDailyJobCounts" resultType="java.util.HashMap">
+        SELECT
+            DATE(created_at) as date,
+            COUNT(*) as count
+        FROM job_demands
+        WHERE created_at >= #{startDate} AND is_active = true
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+    </select>
+
+    <!-- 8. Daily agency counts (last 7 days) -->
+    <select id="getDailyAgencyCounts" resultType="java.util.HashMap">
+        SELECT
+            DATE(u.created_at) as date,
+            COUNT(*) as count
+        FROM users u
+            INNER JOIN user_roles ur ON u.id = ur.user_id
+        WHERE ur.role = #{role} AND u.created_at >= #{startDate}
+        GROUP BY DATE(u.created_at)
+        ORDER BY date DESC
+    </select>
+
+</mapper>

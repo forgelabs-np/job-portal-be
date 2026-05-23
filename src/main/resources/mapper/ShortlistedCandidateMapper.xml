@@ -90,7 +90,7 @@
         </collection>
     </resultMap>
 
-    <!-- Query 1: Minimal Info for List View (SUPER FAST) -->
+    <!-- Query 1: Minimal Info for List View -->
     <select id="getShortlistedCandidatesMinimal" resultMap="ShortlistedCandidateMinimal">
         SELECT
         ja.id AS application_id,
@@ -116,6 +116,9 @@
         LEFT JOIN users a ON c.agency_id = a.id
         LEFT JOIN interviews i ON ja.id = i.job_application_id
         WHERE ja.status = 'SHORTLISTED'
+        <if test="jobDemandId != null">
+            AND ja.job_demand_id = #{jobDemandId}
+        </if>
         <if test="applicationType != null and applicationType != ''">
             <choose>
                 <when test="applicationType == 'SELF'">
@@ -136,6 +139,9 @@
         FROM job_applications ja
         INNER JOIN candidates c ON ja.candidate_id = c.id
         WHERE ja.status = 'SHORTLISTED'
+        <if test="jobDemandId != null">
+            AND ja.job_demand_id = #{jobDemandId}
+        </if>
         <if test="applicationType != null and applicationType != ''">
             <choose>
                 <when test="applicationType == 'SELF'">

@@ -10,6 +10,7 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.JobApplicationService;
 import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,7 +45,7 @@ public class AdminApplicationController {
                 jobDemandId, agencyId, status, pageable);
         PageRes<AdminApplicationResponse> response = Pages.of(applications);
 
-        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
+        return ResponseUtil.ok("Applications retrieved", response);
     }
 
     @Operation(summary = "Get Application Details", description = "Get detailed application information")
@@ -53,7 +54,7 @@ public class AdminApplicationController {
             @PathVariable Long applicationId) {
 
         AgencyJobApplicationResponse response = jobApplicationService.getApplicationDetails(applicationId);
-        return ResponseEntity.ok(ApiResponse.success("Application details retrieved", response));
+        return ResponseUtil.ok("Application details retrieved", response);
     }
 
     @Operation(summary = "Update Application Status", description = "Approve, shortlist, or reject an application")
@@ -67,6 +68,6 @@ public class AdminApplicationController {
                 applicationId, request.getData(), admin.getId());
 
         String message = "Application status updated to " + request.getData().getStatus();
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 }

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jobportal.v1.mapper.AgencyDashboardMapper">
+
+    <!-- 1. Candidate stats -->
+    <select id="getCandidateStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN is_enabled = true THEN 1 ELSE 0 END) as enabled,
+            SUM(CASE WHEN is_enabled = false THEN 1 ELSE 0 END) as disabled
+        FROM candidates
+        WHERE agency_id = #{agencyId}
+    </select>
+
+    <!-- 2. Application status counts -->
+    <select id="getApplicationStatusCounts" resultType="java.util.HashMap">
+        SELECT
+            status,
+            COUNT(*) as count
+        FROM job_applications
+        WHERE agency_id = #{agencyId}
+        GROUP BY status
+    </select>
+
+    <!-- 3. Assigned jobs stats -->
+    <select id="getAssignedJobsStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(jd.id) as total,
+            SUM(CASE WHEN jd.status = 'OPEN' THEN 1 ELSE 0 END) as open_jobs,
+            SUM(CASE WHEN jd.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_jobs
+        FROM job_agency_assignments ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+        WHERE ja.agency_id = #{agencyId}
+          AND ja.is_enabled = true
+          AND jd.is_active = true
+    </select>
+
+    <!-- 4. Recent applications -->
+    <select id="getRecentApplications" resultType="java.util.HashMap">
+        SELECT
+            ja.id,
+            jd.title as job_title,
+            CONCAT(c.first_name, ' ', c.last_name) as candidate_name,
+            ja.status,
+            ja.applied_at
+        FROM job_applications ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+                 INNER JOIN candidates c ON ja.candidate_id = c.id
+        WHERE ja.agency_id = #{agencyId}
+        ORDER BY ja.applied_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 5. Recent candidates -->
+    <select id="getRecentCandidates" resultType="java.util.HashMap">
+        SELECT
+            id,
+            CONCAT(first_name, ' ', last_name) as full_name,
+            trade,
+            is_enabled,
+            created_at
+        FROM candidates
+        WHERE agency_id = #{agencyId}
+        ORDER BY created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 6. Recent jobs -->
+    <select id="getRecentJobs" resultType="java.util.HashMap">
+        SELECT
+            jd.id,
+            jd.title,
+            c.name as country,
+            jd.total_slots,
+            jd.remaining_slots,
+            jd.status,
+            jd.created_at
+        FROM job_agency_assignments ja
+                 INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+                 LEFT JOIN countries c ON jd.country_id = c.id
+        WHERE ja.agency_id = #{agencyId}
+          AND ja.is_enabled = true
+          AND jd.is_active = true
+        ORDER BY jd.created_at DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 7. Weekly submitted counts -->
+    <select id="getWeeklySubmittedCounts" resultType="java.util.HashMap">
+        SELECT
+            DATE(applied_at) as date,
+            COUNT(*) as count
+        FROM job_applications
+        WHERE agency_id = #{agencyId}
+          AND applied_at >= #{startDate}
+        GROUP BY DATE(applied_at)
+        ORDER BY date DESC
+    </select>
+
+    <!-- 8. Weekly shortlisted counts -->
+    <select id="getWeeklyShortlistedCounts" resultType="java.util.HashMap">
+        SELECT
+            DATE(updated_at) as date,
+            COUNT(*) as count
+        FROM job_applications
+        WHERE agency_id = #{agencyId}
+          AND status = 'SHORTLISTED'
+          AND updated_at >= #{startDate}
+        GROUP BY DATE(updated_at)
+        ORDER BY date DESC
+    </select>
+
+</mapper>

@@ -13,7 +13,7 @@ import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.CandidateDashboardService;
 import com.jobportal.v1.service.CandidateSelfService;
-import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -47,7 +47,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         CandidateDashboardResponse response = candidateDashboardService.getCandidateDashboard(candidate.getId());
-        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+        return ResponseUtil.ok("Dashboard data retrieved", response);
     }
 
     @Operation(summary = "Create or Update My Profile", description = "Create new profile (without id) or update existing (with id)")
@@ -57,7 +57,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         CandidateResponse response = candidateSelfService.createOrUpdateProfile(candidate.getId(), request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Profile saved successfully", response));
+        return ResponseUtil.ok("Profile saved successfully", response);
     }
 
     @Operation(summary = "Get My Profile", description = "Get own candidate profile")
@@ -66,7 +66,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         CandidateResponse response = candidateSelfService.getMyProfile(candidate.getId());
-        return ResponseEntity.ok(ApiResponse.success("Profile retrieved", response));
+        return ResponseUtil.ok("Profile retrieved", response);
     }
 
     @Operation(summary = "Upload Document", description = "Upload candidate document (PASSPORT, CV, PCC, etc.)")
@@ -77,7 +77,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         CandidateDocumentResponse response = candidateSelfService.uploadDocument(candidate.getId(), documentType, file);
-        return ResponseEntity.ok(ApiResponse.success("Document uploaded successfully", response));
+        return ResponseUtil.ok("Document uploaded successfully", response);
     }
 
     @Operation(summary = "Get My Documents", description = "Get all documents uploaded by candidate")
@@ -86,7 +86,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         List<CandidateDocumentResponse> response = candidateSelfService.getMyDocuments(candidate.getId());
-        return ResponseEntity.ok(ApiResponse.success("Documents retrieved", response));
+        return ResponseUtil.ok("Documents retrieved", response);
     }
 
     @Operation(summary = "Delete Document", description = "Delete an uploaded document")
@@ -96,7 +96,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         candidateSelfService.deleteDocument(candidate.getId(), documentId);
-        return ResponseEntity.ok(ApiResponse.success("Document deleted successfully", null));
+        return ResponseUtil.ok("Document deleted successfully");
     }
 
     @Operation(summary = "Get My Applications", description = "Get all job applications submitted by candidate")
@@ -106,9 +106,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         Page<JobApplicationResponse> applications = candidateSelfService.getMyApplications(candidate.getId(), pageable);
-        PageRes<JobApplicationResponse> response = Pages.of(applications);
-
-        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", response));
+        return ResponseUtil.page("Applications retrieved", applications);
     }
 
     @Operation(summary = "Get Application by ID", description = "Get detailed job application by ID with document statuses")
@@ -118,9 +116,8 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         CandidateJobApplicationResponse response = candidateSelfService.getMyApplicationById(candidate.getId(), applicationId);
-        return ResponseEntity.ok(ApiResponse.success("Application retrieved", response));
+        return ResponseUtil.ok("Application retrieved", response);
     }
-
 
     @Operation(summary = "Apply for Job", description = "Submit application for a job")
     @PostMapping("/jobs/{jobDemandId}/apply")
@@ -130,7 +127,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         JobApplicationResponse response = candidateSelfService.applyForJob(candidate.getId(), jobDemandId, notes);
-        return ResponseEntity.ok(ApiResponse.success("Application submitted successfully", response));
+        return ResponseUtil.ok("Application submitted successfully", response);
     }
 
     @Operation(summary = "Withdraw Application", description = "Withdraw a submitted job application")
@@ -140,7 +137,7 @@ public class CandidateSelfController {
             @CurrentUser UserPrincipal candidate) {
 
         JobApplicationResponse response = candidateSelfService.withdrawApplication(candidate.getId(), applicationId);
-        return ResponseEntity.ok(ApiResponse.success("Application withdrawn successfully", response));
+        return ResponseUtil.ok("Application withdrawn successfully", response);
     }
 
     @Operation(summary = "Get My Shortlisted Applications",
@@ -152,8 +149,6 @@ public class CandidateSelfController {
 
         Page<JobApplicationResponse> applications = candidateSelfService.getMyApplications(
                 candidate.getId(), "SHORTLISTED", pageable);
-        PageRes<JobApplicationResponse> response = Pages.of(applications);
-
-        return ResponseEntity.ok(ApiResponse.success("Shortlisted applications retrieved", response));
+        return ResponseUtil.page("Shortlisted applications retrieved", applications);
     }
 }

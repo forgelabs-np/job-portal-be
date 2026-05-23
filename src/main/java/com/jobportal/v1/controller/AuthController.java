@@ -13,13 +13,13 @@ import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.AuthService;
 import com.jobportal.v1.service.CurrentUserService;
 import com.jobportal.v1.service.PasswordResetService;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -42,7 +42,7 @@ public class AuthController {
             @Valid @RequestBody ApiRequest<LoginRequest> request) {
 
         LoginResponse response = authService.authenticateAdmin(request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Admin login successful", response));
+        return ResponseUtil.ok("Admin login successful", response);
     }
 
     @Operation(summary = "Agency Login", description = "Authenticate agency user")
@@ -51,7 +51,7 @@ public class AuthController {
             @Valid @RequestBody ApiRequest<LoginRequest> request) {
 
         LoginResponse response = authService.authenticateAgency(request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Agency login successful", response));
+        return ResponseUtil.ok("Agency login successful", response);
     }
 
     @Operation(summary = "Candidate Login", description = "Authenticate candidate user")
@@ -60,7 +60,7 @@ public class AuthController {
             @Valid @RequestBody ApiRequest<LoginRequest> request) {
 
         LoginResponse response = authService.authenticateCandidate(request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Candidate login successful", response));
+        return ResponseUtil.ok("Candidate login successful", response);
     }
 
     @Operation(summary = "User Registration", description = "Unified registration for Admin, Agency, and Candidate")
@@ -76,8 +76,7 @@ public class AuthController {
                 .message("Verification code sent to your email. Please check your inbox.")
                 .build();
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Registration initiated", response));
+        return ResponseUtil.created("Registration initiated", response);
     }
 
     @Operation(summary = "Verify Signup", description = "Verify email OTP to complete registration")
@@ -87,10 +86,10 @@ public class AuthController {
 
         User user = authService.verifyAndCompleteSignup(request.getData());
 
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseUtil.okString(
                 String.format("Registration completed successfully! Welcome %s", user.getFullName()),
                 "Email verified successfully"
-        ));
+        );
     }
 
     @Operation(summary = "Resend Verification OTP", description = "Resend verification OTP (2-minute cooldown)")
@@ -100,10 +99,10 @@ public class AuthController {
 
         authService.resendVerificationOtp(request.getData().getEmail());
 
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseUtil.okString(
                 "Verification code has been resent to your email.",
                 "OTP resent to " + request.getData().getEmail()
-        ));
+        );
     }
 
     @Operation(summary = "Refresh Token", description = "Get new access token using refresh token")
@@ -118,7 +117,7 @@ public class AuthController {
                 loginResponse.getRefreshToken()
         );
 
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", response));
+        return ResponseUtil.ok("Token refreshed successfully", response);
     }
 
     @Operation(summary = "Logout", description = "Logout user and invalidate refresh token")
@@ -127,7 +126,7 @@ public class AuthController {
             @Valid @RequestBody ApiRequest<LogoutRequest> request) {
 
         authService.logout(request.getData().getRefreshToken());
-        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+        return ResponseUtil.okString("Logout successful");
     }
 
     @Operation(summary = "Change Password", description = "Change password for authenticated user")
@@ -138,7 +137,7 @@ public class AuthController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         authService.changePassword(request.getData(), userPrincipal.getEmail());
-        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+        return ResponseUtil.okString("Password changed successfully");
     }
 
     @Operation(summary = "Forgot Password", description = "Request password reset OTP")
@@ -153,7 +152,7 @@ public class AuthController {
                 httpRequest.getHeader("User-Agent")
         );
 
-        return ResponseEntity.ok(ApiResponse.success("Password reset OTP sent to your email", null));
+        return ResponseUtil.okString("Password reset OTP sent to your email");
     }
 
     @Operation(summary = "Reset Password", description = "Reset password using OTP")
@@ -169,9 +168,8 @@ public class AuthController {
                 httpRequest.getHeader("User-Agent")
         );
 
-        return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
+        return ResponseUtil.okString("Password reset successfully");
     }
-
 
     @Operation(summary = "Get Current User", description = "Get currently authenticated user info with role-specific profile")
     @GetMapping("/me")
@@ -180,7 +178,7 @@ public class AuthController {
             @CurrentUser UserPrincipal userPrincipal) {
 
         CurrentUserResponse response = currentUserService.getCurrentUserProfile(userPrincipal.getId());
-        return ResponseEntity.ok(ApiResponse.success("Current user retrieved", response));
+        return ResponseUtil.ok("Current user retrieved", response);
     }
 
     private String getClientIp(HttpServletRequest request) {

@@ -5,13 +5,14 @@ import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.country.response.CountryResponse;
 import com.jobportal.v1.dto.country.response.CountrySyncResponse;
 import com.jobportal.v1.service.CountrySyncService;
-import com.jobportal.v1.util.Pages;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,7 @@ public class CountryController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<CountrySyncResponse>> syncCountries() {
         CountrySyncResponse response = countrySyncService.syncCountriesFromApi();
-        return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+        return ResponseUtil.ok(response.getMessage(), response);
     }
 
     @Operation(summary = "Search Countries", description = "Search countries by name or code (Admin only)")
@@ -40,14 +41,10 @@ public class CountryController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PageRes<CountryResponse>>> searchCountries(
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @PageableDefault(size = 20) Pageable pageable) {
 
-        Pageable pageable = Pages.toPageable(page, size);
         Page<CountryResponse> countryPage = countrySyncService.searchCountries(keyword, pageable);
-        PageRes<CountryResponse> response = Pages.of(countryPage);
-
-        return ResponseEntity.ok(ApiResponse.success("Countries retrieved", response));
+        return ResponseUtil.page("Countries retrieved", countryPage);
     }
 
     @Operation(summary = "Toggle Country Status", description = "Enable or disable a country (Admin only)")
@@ -56,13 +53,13 @@ public class CountryController {
     public ResponseEntity<ApiResponse<CountryResponse>> toggleCountryStatus(@PathVariable Long id) {
         CountryResponse response = countrySyncService.toggleCountryStatus(id);
         String message = response.getIsEnabled() ? "Country enabled successfully" : "Country disabled successfully";
-        return ResponseEntity.ok(ApiResponse.success(message, response));
+        return ResponseUtil.ok(message, response);
     }
 
     @Operation(summary = "Get Enabled Countries", description = "Get all enabled countries (Public - for job posting)")
     @GetMapping("/enabled")
     public ResponseEntity<ApiResponse<List<CountryResponse>>> getEnabledCountries() {
         List<CountryResponse> response = countrySyncService.getEnabledCountries();
-        return ResponseEntity.ok(ApiResponse.success("Enabled countries retrieved", response));
+        return ResponseUtil.ok("Enabled countries retrieved", response);
     }
 }

@@ -8,7 +8,9 @@ import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
+import com.jobportal.v1.service.AgencyDashboardService;
 import com.jobportal.v1.service.AgencyProfileService;
+import com.jobportal.v1.util.ResponseUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,14 +33,15 @@ import java.util.List;
 public class AgencyController {
 
     private final AgencyProfileService agencyProfileService;
+    private final AgencyDashboardService agencyDashboardService;
 
     @Operation(summary = "Agency Dashboard", description = "Get dashboard statistics and activities for agency")
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<AgencyDashboardResponse>> getDashboard(
             @CurrentUser UserPrincipal agency) {
 
-        AgencyDashboardResponse response = agencyProfileService.getAgencyDashboard(agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved", response));
+        AgencyDashboardResponse response = agencyDashboardService.getAgencyDashboard(agency.getId());
+        return ResponseUtil.ok("Dashboard data retrieved", response);
     }
 
     @Operation(summary = "Create or Update Agency Profile", description = "Agency creates or updates their profile")
@@ -48,7 +51,7 @@ public class AgencyController {
             @CurrentUser UserPrincipal agency) {
 
         AgencyProfileResponse response = agencyProfileService.createOrUpdateProfile(agency.getId(), request.getData());
-        return ResponseEntity.ok(ApiResponse.success("Profile saved successfully", response));
+        return ResponseUtil.ok("Profile saved successfully", response);
     }
 
     @Operation(summary = "Get My Profile", description = "Agency gets their own profile")
@@ -57,7 +60,7 @@ public class AgencyController {
             @CurrentUser UserPrincipal agency) {
 
         AgencyProfileResponse response = agencyProfileService.getMyProfile(agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Profile retrieved", response));
+        return ResponseUtil.ok("Profile retrieved", response);
     }
 
     @Operation(summary = "Upload Document", description = "Upload agency document (Trade Licence, Company Registration, MOU, Owner Citizenship)")
@@ -68,7 +71,7 @@ public class AgencyController {
             @CurrentUser UserPrincipal agency) {
 
         AgencyDocumentResponse response = agencyProfileService.uploadDocument(agency.getId(), documentType, file);
-        return ResponseEntity.ok(ApiResponse.success("Document uploaded successfully", response));
+        return ResponseUtil.ok("Document uploaded successfully", response);
     }
 
     @Operation(summary = "Get My Documents", description = "Get all documents uploaded by agency")
@@ -77,7 +80,7 @@ public class AgencyController {
             @CurrentUser UserPrincipal agency) {
 
         List<AgencyDocumentResponse> response = agencyProfileService.getMyDocuments(agency.getId());
-        return ResponseEntity.ok(ApiResponse.success("Documents retrieved", response));
+        return ResponseUtil.ok("Documents retrieved", response);
     }
 
     @Operation(summary = "Delete Document", description = "Delete an uploaded document")
@@ -87,6 +90,6 @@ public class AgencyController {
             @CurrentUser UserPrincipal agency) {
 
         agencyProfileService.deleteDocument(agency.getId(), documentId);
-        return ResponseEntity.ok(ApiResponse.success("Document deleted successfully", null));
+        return ResponseUtil.ok("Document deleted successfully");
     }
 }

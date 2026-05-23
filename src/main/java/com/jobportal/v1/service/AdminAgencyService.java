@@ -6,6 +6,8 @@ import com.jobportal.v1.dto.agency.request.ProfileApprovalRequest;
 import com.jobportal.v1.dto.agency.response.AgencyDocumentResponse;
 import com.jobportal.v1.dto.agency.response.AgencyProfileResponse;
 import com.jobportal.v1.enums.ApprovalStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -19,7 +21,7 @@ public interface AdminAgencyService {
     AgencyDocumentResponse processDocumentApproval(AgencyDocumentApprovalRequest request, Long adminId);
 
     // Profile Management
-    List<AgencyProfileResponse> getProfilesByStatus(ApprovalStatus status);
+    Page<AgencyProfileResponse> getProfilesByStatus(ApprovalStatus status, Pageable pageable);
 
     AgencyProfileResponse processProfileApproval(ProfileApprovalRequest request, Long adminId);
 

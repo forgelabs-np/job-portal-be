@@ -30,14 +30,16 @@ public class AdminShortlistedController {
     private final ShortlistedCandidateService shortlistedCandidateService;
 
     @Operation(summary = "Get Shortlisted Candidates (List View)",
-            description = "Minimal info for list view. Use applicationType=SELF for self-candidates, AGENCY for agency-candidates")
+            description = "Minimal info for list view. Use applicationType=SELF for self-candidates, AGENCY for agency-candidates, and jobDemandId to filter by job")
     @GetMapping
     public ResponseEntity<ApiResponse<PageRes<ShortlistedCandidateMinimalResponse>>> getShortlistedCandidates(
             @RequestParam(required = false) String applicationType,
+            @RequestParam(required = false) Long jobDemandId,
             @PageableDefault(size = 20) Pageable pageable,
             @CurrentUser UserPrincipal admin) {
 
-        Page<ShortlistedCandidateMinimalResponse> candidates = shortlistedCandidateService.getShortlistedCandidates(applicationType, pageable);
+        Page<ShortlistedCandidateMinimalResponse> candidates = shortlistedCandidateService.getShortlistedCandidates(
+                applicationType, jobDemandId, pageable);  // Pass jobDemandId
         PageRes<ShortlistedCandidateMinimalResponse> response = Pages.of(candidates);
 
         String message = applicationType == null ? "All shortlisted candidates retrieved" :

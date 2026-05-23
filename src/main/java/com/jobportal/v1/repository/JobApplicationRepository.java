@@ -71,4 +71,6 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     Page<JobApplication> findByJobDemandIdAndStatusAndAgencyIsNull(@Param("jobDemandId") Long jobDemandId,
                                                                    @Param("status") ApplicationStatus status,
                                                                    Pageable pageable);
+
+    boolean existsByCandidateIdAndStatusIn(Long candidateId, List<ApplicationStatus> statuses);
 }

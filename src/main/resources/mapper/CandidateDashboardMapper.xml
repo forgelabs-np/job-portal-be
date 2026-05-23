@@ -79,6 +79,7 @@
         WHERE jd.is_public = true
           AND jd.status = #{status}
           AND jd.is_active = true
+          AND (jd.deadline IS NULL OR jd.deadline >= CURRENT_DATE)
           AND NOT EXISTS (
             SELECT 1 FROM job_applications ja
             WHERE ja.job_demand_id = jd.id
@@ -119,6 +120,22 @@
         WHERE is_public = true
           AND status = #{status}
           AND is_active = true
+          AND (deadline IS NULL OR deadline >= CURRENT_DATE)
     </select>
 
+    <!-- Accurate available jobs count - considers job status and active state -->
+    <select id="getAvailableJobsCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM job_demands jd
+        WHERE jd.is_public = true
+          AND jd.status = #{status}
+          AND jd.is_active = true
+          AND (jd.deadline IS NULL OR jd.deadline >= CURRENT_DATE)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM job_applications ja
+            WHERE ja.job_demand_id = jd.id
+              AND ja.candidate_id = #{candidateId}
+        )
+    </select>
 </mapper>

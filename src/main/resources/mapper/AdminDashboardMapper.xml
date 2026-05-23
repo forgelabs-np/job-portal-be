@@ -12,6 +12,7 @@
             COALESCE(SUM(filled_slots), 0) as filled_slots
         FROM job_demands
         WHERE is_active = true
+          AND (deadline IS NULL OR deadline >= CURRENT_DATE)
     </select>
 
     <!-- 2. Candidate aggregate stats -->
@@ -44,6 +45,7 @@
             COUNT(*) as count
         FROM job_demands
         WHERE is_active = true
+          AND (deadline IS NULL OR deadline >= CURRENT_DATE)
         GROUP BY status
     </select>
 
@@ -62,6 +64,7 @@
         FROM job_demands jd
                  LEFT JOIN countries c ON jd.country_id = c.id
         WHERE jd.is_active = true
+          AND (jd.deadline IS NULL OR jd.deadline >= CURRENT_DATE)
         ORDER BY jd.created_at DESC
             LIMIT #{limit}
     </select>
@@ -88,6 +91,7 @@
             COUNT(*) as count
         FROM job_demands
         WHERE created_at >= #{startDate} AND is_active = true
+          AND (deadline IS NULL OR deadline >= CURRENT_DATE)
         GROUP BY DATE(created_at)
         ORDER BY date DESC
     </select>

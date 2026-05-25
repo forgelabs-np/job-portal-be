@@ -1,4 +1,4 @@
-name: Deploy Backend to Staging Server
+name: Deploy Backend to Staging
 
 on:
   push:
@@ -13,17 +13,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH to server
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build Spring Boot JAR
+        run: mvn clean package -DskipTests
+
+      - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: aac1ss
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /mnt/storage/server/projects/job-portal-be
+            cd /mnt/storage/server/compose
 
-            git pull origin staging
+            echo "Stopping old container..."
+            docker compose -f backend.yml down || true
 
-            docker compose -f /mnt/storage/server/compose/backend.yml down
+            echo "Building and starting new container..."
+            docker compose -f backend.yml up -d --build
 
-            docker compose -f /mnt/storage/server/compose/backend.yml up -d --build
+            echo "Deployment complete "

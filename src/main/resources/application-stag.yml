@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
-    username: ${DB_USERNAME:postgres.hduarsuedduoayzeecpo}
-    password: ${DB_PASSWORD:@Ashishthapa46}
+    url: jdbc:postgresql://100.76.150.8:5432/jobportal?timeZone=UTC
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:jobportal123}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 3
@@ -21,11 +21,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   mail:
     host: smtp.gmail.com
@@ -44,10 +44,7 @@ spring:
           writetimeout: 5000
         debug: false
 
-  flyway:
-    enabled: false
-
 logging:
   level:
-    org.springdoc: DEBUG
-    org.hibernate.type: TRACE
+    org.springdoc: INFO
+    org.hibernate.type: WARN

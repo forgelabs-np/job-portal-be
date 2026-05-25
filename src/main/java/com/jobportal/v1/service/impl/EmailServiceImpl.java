@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -44,7 +45,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(email);
             helper.setSubject("Verify Your Email - JobPortal");
 
@@ -68,6 +69,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send verification email: {}", e.getMessage());
             throw new RuntimeException("Failed to send verification email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -76,7 +79,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(to);
             helper.setSubject("Your Agency Account Has Been Approved! - JobPortal");
 
@@ -96,6 +99,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send approval email: {}", e.getMessage());
             throw new RuntimeException("Failed to send approval email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -104,7 +109,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(to);
             helper.setSubject("Update on Your Agency Application - JobPortal");
 
@@ -125,6 +130,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send rejection email: {}", e.getMessage());
             throw new RuntimeException("Failed to send rejection email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -133,7 +140,6 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
             helper.setTo(user.getEmail());
             helper.setSubject("Welcome to JobPortal!");
             helper.setFrom(fromEmail, "JobPortal Team");
@@ -159,7 +165,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(user.getEmail());
             helper.setSubject("Password Reset Request - JobPortal");
 
@@ -181,6 +187,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send password reset email: {}", e.getMessage());
             throw new RuntimeException("Failed to send password reset email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -207,7 +215,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setTo(recipientEmail);
             helper.setSubject("Interview Scheduled - " + job.getTitle());
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             Context context = new Context();
             context.setVariable("recipientName", recipientName);
             context.setVariable("jobTitle", job.getTitle());
@@ -231,6 +239,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send interview scheduled email: {}", e.getMessage());
             throw new RuntimeException("Failed to send interview scheduled email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -254,7 +264,7 @@ public class EmailServiceImpl implements EmailService {
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(recipientEmail);
             helper.setSubject("Reminder: Interview Tomorrow - " + job.getTitle());
 
@@ -277,6 +287,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send interview reminder email: {}", e.getMessage());
             // Don't throw - reminder failure shouldn't break the flow
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -300,7 +312,7 @@ public class EmailServiceImpl implements EmailService {
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(recipientEmail);
             helper.setSubject("Interview Rescheduled - " + job.getTitle());
 
@@ -323,6 +335,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send interview rescheduled email: {}", e.getMessage());
             throw new RuntimeException("Failed to send interview rescheduled email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -346,7 +360,7 @@ public class EmailServiceImpl implements EmailService {
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
+            helper.setFrom(fromEmail, "JobPortal Team");
             helper.setTo(recipientEmail);
             helper.setSubject("Interview Cancelled - " + job.getTitle());
 
@@ -367,6 +381,8 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send interview cancelled email: {}", e.getMessage());
             throw new RuntimeException("Failed to send interview cancelled email", e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 

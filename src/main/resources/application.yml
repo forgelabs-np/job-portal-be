@@ -3,10 +3,8 @@ spring:
     name: JOB_PORTAL_V1
   profiles:
     active: dev
-  mail:
-    from: tryaac1ss@gmail.com
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
 
 server:
@@ -40,7 +38,13 @@ app:
       otp-expiry-minutes: 10
       otp-resend-cooldown-seconds: 120
       max-otp-attempts: 5
-
+  test:
+    mode: false
+    static-otp: "123456"
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+  support:
+    email: ${SUPPORT_EMAIL:support@jobportal.com}
   dashboard:
     recent-limit: 5
     recommended-limit: 5
@@ -48,6 +52,20 @@ app:
     date-time-format: "yyyy-MM-dd HH:mm:ss"
     day-format: "EEE"
     date-format: "yyyy-MM-dd"
+
+file:
+  upload:
+    base-dir: uploads
+    max-file-size: 5242880
+    allowed-extensions: png,jpg,jpeg,pdf,doc,docx
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.jobportal.v1.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
 
 management:
   endpoints:
@@ -59,17 +77,6 @@ management:
     health:
       show-details: always
       show-components: always
-
-logging:
-  level:
-    com.jobportal.v1: DEBUG
-    org.springframework.security: INFO
-    org.springframework.web: INFO
-    org.hibernate: WARN
-    com.zaxxer.hikari: WARN
-    javax.mail: OFF
-    jakarta.mail: OFF
-    org.springframework.mail: WARN
 
 springdoc:
   api-docs:
@@ -87,16 +94,13 @@ springdoc:
   packages-to-scan: com.jobportal.v1.controller
   paths-to-match: /api/**
 
-file:
-  upload:
-    base-dir: uploads
-    max-file-size: 5242880  # 5MB in bytes
-    allowed-extensions: png,jpg,jpeg,pdf,doc,docx
-
-mybatis:
-  mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.jobportal.v1.entity
-  configuration:
-    map-underscore-to-camel-case: true
-    default-fetch-size: 100
-    default-statement-timeout: 30
+logging:
+  level:
+    com.jobportal.v1: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    org.hibernate: WARN
+    com.zaxxer.hikari: WARN
+    javax.mail: OFF
+    jakarta.mail: OFF
+    org.springframework.mail: WARN

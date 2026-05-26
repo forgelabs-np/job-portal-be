@@ -2,7 +2,7 @@ spring:
   application:
     name: JOB_PORTAL_V1
   profiles:
-    active: stag
+    active: dev
   flyway:
     enabled: false
     locations: classpath:db/migration

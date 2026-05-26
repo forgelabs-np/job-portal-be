@@ -49,9 +49,8 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://localhost:8080",
-                "http://192.168.1.119:3000",
-                "http://192.168.1.10:3000",
-                "http://192.168.1.109:8080"
+                "http://100.76.150.8:3000",
+                "http://100.76.150.8:8080"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));

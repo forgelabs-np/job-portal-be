@@ -1,5 +1,6 @@
 package com.jobportal.v1.dto.dashboard.response.candidate;
 
+import com.jobportal.v1.dto.announcement.response.AnnouncementResponse;
 import lombok.Builder;
 import lombok.Data;
 import java.util.List;
@@ -13,4 +14,5 @@ public class CandidateDashboardResponse {
     private List<CandidateDocumentSummary> documentSummary;
     private ApplicationStatusDistribution statusDistribution;
     private WeeklyApplicationActivity weeklyActivity;
+    private List<AnnouncementResponse> latestAnnouncements;
 }

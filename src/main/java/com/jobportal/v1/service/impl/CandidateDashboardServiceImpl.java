@@ -1,8 +1,10 @@
 package com.jobportal.v1.service.impl;
 
+import com.jobportal.v1.dto.announcement.response.AnnouncementResponse;
 import com.jobportal.v1.dto.dashboard.response.candidate.*;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.mapper.CandidateDashboardMapper;
+import com.jobportal.v1.service.AnnouncementService;
 import com.jobportal.v1.service.CandidateDashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class CandidateDashboardServiceImpl implements CandidateDashboardService {
 
     private final CandidateDashboardMapper dashboardMapper;
+    private final AnnouncementService announcementService;
 
     @Value("${app.dashboard.recent-limit:5}")
     private int recentLimit;
@@ -162,6 +165,9 @@ public class CandidateDashboardServiceImpl implements CandidateDashboardService 
                 .withdrawn(withdrawnApplications)
                 .build();
 
+        // Get latest announcements for candidate
+        List<AnnouncementResponse> latestAnnouncements = announcementService.getLatestAnnouncements("CANDIDATE", 5);
+
         // 10. Weekly activity
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(weeklyDays).withHour(0).withMinute(0).withSecond(0);
         List<Map<String, Object>> weeklyData = dashboardMapper.getWeeklyActivity(candidateId, sevenDaysAgo);
@@ -197,6 +203,7 @@ public class CandidateDashboardServiceImpl implements CandidateDashboardService 
                 .documentSummary(documentSummary)
                 .statusDistribution(statusDistribution)
                 .weeklyActivity(weeklyActivity)
+                .latestAnnouncements(latestAnnouncements)
                 .build();
     }
 }

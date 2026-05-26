@@ -1,9 +1,11 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.admin.response.AdminDashboardResponse;
+import com.jobportal.v1.dto.announcement.response.AnnouncementResponse;
 import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.mapper.AdminDashboardMapper;
 import com.jobportal.v1.service.AdminDashboardService;
+import com.jobportal.v1.service.AnnouncementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +22,7 @@ import java.util.stream.Collectors;
 public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private final AdminDashboardMapper dashboardMapper;
-
+    private final AnnouncementService announcementService;
     @Value("${app.dashboard.recent-limit:5}")
     private int recentLimit;
 
@@ -146,6 +148,8 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .agenciesJoined(agenciesJoined)
                 .build();
 
+        List<AnnouncementResponse> latestAnnouncements = announcementService.getLatestAnnouncements("ADMIN", 5);
+
         // 8. Build Stats
         DashboardStats stats = DashboardStats.builder()
                 .totalAgencies(totalAgencies)
@@ -183,6 +187,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .recentAgencies(recentAgencies)
                 .jobStatusDistribution(jobStatusDistribution)
                 .weeklyActivity(weeklyActivity)
+                .latestAnnouncements(latestAnnouncements)
                 .build();
     }
 }

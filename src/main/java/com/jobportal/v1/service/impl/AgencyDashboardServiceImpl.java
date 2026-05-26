@@ -1,9 +1,11 @@
 package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.agency.response.*;
+import com.jobportal.v1.dto.announcement.response.AnnouncementResponse;
 import com.jobportal.v1.dto.dashboard.response.*;
 import com.jobportal.v1.mapper.AgencyDashboardMapper;
 import com.jobportal.v1.service.AgencyDashboardService;
+import com.jobportal.v1.service.AnnouncementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class AgencyDashboardServiceImpl implements AgencyDashboardService {
 
     private final AgencyDashboardMapper agencyDashboardMapper;
+    private final AnnouncementService announcementService;
 
     @Value("${app.dashboard.recent-limit:5}")
     private int recentLimit;
@@ -153,6 +156,8 @@ public class AgencyDashboardServiceImpl implements AgencyDashboardService {
                 ? (shortlistedApplications.doubleValue() / totalApplications.doubleValue()) * 100
                 : 0.0;
 
+        List<AnnouncementResponse> latestAnnouncements = announcementService.getLatestAnnouncements("AGENCY", 5);
+
         // 9. Build Stats
         AgencyDashboardStats stats = AgencyDashboardStats.builder()
                 .totalCandidates(totalCandidates)
@@ -188,6 +193,7 @@ public class AgencyDashboardServiceImpl implements AgencyDashboardService {
                 .recentJobs(recentJobs)
                 .statusDistribution(statusDistribution)
                 .weeklyActivity(weeklyActivity)
+                .latestAnnouncements(latestAnnouncements)
                 .build();
     }
 }

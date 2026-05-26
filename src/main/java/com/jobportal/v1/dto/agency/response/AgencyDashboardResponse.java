@@ -1,5 +1,6 @@
 package com.jobportal.v1.dto.agency.response;
 
+import com.jobportal.v1.dto.announcement.response.AnnouncementResponse;
 import lombok.Builder;
 import lombok.Data;
 
@@ -14,5 +15,6 @@ public class AgencyDashboardResponse {
     private List<AgencyRecentJob> recentJobs;
     private AgencyApplicationStatusDistribution statusDistribution;
     private AgencyWeeklyActivity weeklyActivity;
+    private List<AnnouncementResponse> latestAnnouncements;
 }
 

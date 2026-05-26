@@ -112,6 +112,36 @@ public class FileUploadUtil {
         return Paths.get(baseDir, "self_candidates", String.valueOf(candidateId), "documents", fileName).toString();
     }
 
+    // Announcement Image Upload
+    public String uploadAnnouncementImage(Long announcementId, MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String projectRoot = System.getProperty("user.dir");
+
+        // Folder structure: uploads/announcements/{announcementId}/
+        Path uploadPath = Paths.get(projectRoot, baseDir, "announcements", String.valueOf(announcementId));
+
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+            log.info("Created directory: {}", uploadPath);
+        }
+
+        String originalFileName = file.getOriginalFilename();
+        String fileExtension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            fileExtension = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
+        }
+
+        // Generate filename: {announcementId}_{timestamp}{extension}
+        String fileName = announcementId + "_" + System.currentTimeMillis() + fileExtension;
+        Path filePath = uploadPath.resolve(fileName);
+
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Announcement image uploaded to: {}", filePath);
+
+        return Paths.get(baseDir, "announcements", String.valueOf(announcementId), fileName).toString();
+    }
+
     // Generic delete file method
     public boolean deleteFile(String filePath) {
         try {

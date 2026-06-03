@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jobportal.v1.mapper.ApplicationMapper">
+
+    <!-- ============ AGENCY APPLICATIONS (agency_id IS NOT NULL) ============ -->
+
+    <!-- Count Agency Applications -->
+    <select id="countAgencyApplications" resultType="long">
+        SELECT COUNT(*)
+        FROM job_applications ja
+        WHERE ja.agency_id IS NOT NULL
+        <include refid="agencyApplicationFilters"/>
+    </select>
+
+    <!-- Get Agency Applications (Paginated) -->
+    <select id="getAgencyApplications" resultType="com.jobportal.v1.dto.admin.response.AdminApplicationResponse">
+        SELECT
+        ja.id,
+        ja.job_demand_id,
+        jd.title AS jobTitle,
+        c.name AS jobCountry,
+        jd.city AS jobCity,
+        ja.agency_id,
+        a.full_name AS agencyName,
+        a.email AS agencyEmail,
+        ja.candidate_id,
+        CONCAT(cand.first_name, ' ', cand.last_name) AS candidateName,
+        cand.trade AS candidateTrade,
+        cand.passport_number AS candidatePassportNumber,
+        cand.candidate_type AS candidateType,
+        ja.notes,
+        ja.status,
+        TO_CHAR(ja.applied_at, 'YYYY-MM-DD HH24:MI:SS') AS appliedAt,
+        ja.rejection_reason,
+        ja.reviewed_by AS reviewedBy,
+        TO_CHAR(ja.reviewed_at, 'YYYY-MM-DD HH24:MI:SS') AS reviewedAt,
+        ja.created_at AS createdAt,
+        ja.updated_at AS updatedAt
+        FROM job_applications ja
+        INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+        LEFT JOIN countries c ON jd.country_id = c.id
+        LEFT JOIN users a ON ja.agency_id = a.id
+        INNER JOIN candidates cand ON ja.candidate_id = cand.id
+        WHERE ja.agency_id IS NOT NULL
+        <include refid="agencyApplicationFilters"/>
+        ORDER BY ja.applied_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- Agency Application Filters -->
+    <sql id="agencyApplicationFilters">
+        <if test="jobDemandId != null">
+            AND ja.job_demand_id = #{jobDemandId}
+        </if>
+        <if test="agencyId != null">
+            AND ja.agency_id = #{agencyId}
+        </if>
+        <if test="status != null and status != ''">
+            AND ja.status = #{status}
+        </if>
+    </sql>
+
+    <!-- ============ SELF-CANDIDATE APPLICATIONS (agency_id IS NULL) ============ -->
+
+    <!-- Count Self Applications -->
+    <select id="countSelfApplications" resultType="long">
+        SELECT COUNT(*)
+        FROM job_applications ja
+        WHERE ja.agency_id IS NULL
+        <include refid="selfApplicationFilters"/>
+    </select>
+
+    <!-- Get Self Applications (Paginated) -->
+    <select id="getSelfApplications" resultType="com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse">
+        SELECT
+        ja.id,
+        ja.job_demand_id,
+        jd.title AS jobTitle,
+        c.name AS country,
+        jd.city AS city,
+        jd.salary_amount,
+        jd.salary_currency,
+        ja.candidate_id,
+        CONCAT(cand.first_name, ' ', cand.last_name) AS candidateName,
+        cand.trade AS candidateTrade,
+        ja.notes,
+        ja.status,
+        TO_CHAR(ja.applied_at, 'YYYY-MM-DD HH24:MI:SS') AS appliedAt,
+        ja.rejection_reason,
+        ja.created_at AS createdAt,
+        ja.updated_at AS updatedAt
+        FROM job_applications ja
+        INNER JOIN job_demands jd ON ja.job_demand_id = jd.id
+        LEFT JOIN countries c ON jd.country_id = c.id
+        INNER JOIN candidates cand ON ja.candidate_id = cand.id
+        WHERE ja.agency_id IS NULL
+        <include refid="selfApplicationFilters"/>
+        ORDER BY ja.applied_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- Self Application Filters -->
+    <sql id="selfApplicationFilters">
+        <if test="jobDemandId != null">
+            AND ja.job_demand_id = #{jobDemandId}
+        </if>
+        <if test="status != null and status != ''">
+            AND ja.status = #{status}
+        </if>
+    </sql>
+
+</mapper>

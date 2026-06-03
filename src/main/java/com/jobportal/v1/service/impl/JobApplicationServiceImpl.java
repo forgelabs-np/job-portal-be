@@ -11,11 +11,13 @@ import com.jobportal.v1.enums.ApplicationStatus;
 import com.jobportal.v1.enums.ApprovalStatus;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
+import com.jobportal.v1.mapper.ApplicationMapper;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.JobApplicationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ public class JobApplicationServiceImpl implements JobApplicationService {
     private final CandidateRepository candidateRepository;
     private final JobAgencyAssignmentRepository assignmentRepository;
     private final CandidateDocumentRepository documentRepository;
+    private final ApplicationMapper applicationMapper;
 
     @Override
     @Transactional
@@ -217,32 +220,14 @@ public class JobApplicationServiceImpl implements JobApplicationService {
 
     @Override
     public Page<AdminApplicationResponse> getAllApplications(Long jobDemandId, Long agencyId, String status, Pageable pageable) {
-        Page<JobApplication> applications;
+        long total = applicationMapper.countAgencyApplications(jobDemandId, agencyId, status);
+        List<AdminApplicationResponse> content = applicationMapper.getAgencyApplications(
+                jobDemandId, agencyId, status,
+                pageable.getPageSize(),
+                (int) pageable.getOffset()
+        );
 
-        if (jobDemandId != null && agencyId != null && status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByJobDemandIdAndAgencyIdAndStatus(
-                    jobDemandId, agencyId, appStatus, pageable);
-        } else if (jobDemandId != null && agencyId != null) {
-            applications = jobApplicationRepository.findByJobDemandIdAndAgencyId(jobDemandId, agencyId, pageable);
-        } else if (jobDemandId != null && status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByJobDemandIdAndStatus(jobDemandId, appStatus, pageable);
-        } else if (agencyId != null && status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByAgencyIdAndStatus(agencyId, appStatus, pageable);
-        } else if (jobDemandId != null) {
-            applications = jobApplicationRepository.findByJobDemandId(jobDemandId, pageable);
-        } else if (agencyId != null) {
-            applications = jobApplicationRepository.findByAgencyId(agencyId, pageable);
-        } else if (status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByStatus(appStatus, pageable);
-        } else {
-            applications = jobApplicationRepository.findAll(pageable);
-        }
-
-        return applications.map(this::mapToAdminResponse);
+        return new PageImpl<>(content, pageable, total);
     }
 
     @Override
@@ -304,21 +289,16 @@ public class JobApplicationServiceImpl implements JobApplicationService {
 
     @Override
     public Page<JobApplicationResponse> getAllSelfApplications(Long jobDemandId, String status, Pageable pageable) {
-        Page<JobApplication> applications;
+        long total = applicationMapper.countSelfApplications(jobDemandId, status);
+        List<JobApplicationResponse> content = applicationMapper.getSelfApplications(
+                jobDemandId, status,
+                pageable.getPageSize(),
+                (int) pageable.getOffset()
+        );
 
-        if (jobDemandId != null && status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByJobDemandIdAndStatusAndAgencyIsNull(jobDemandId, appStatus, pageable);
-        } else if (jobDemandId != null) {
-            applications = jobApplicationRepository.findByJobDemandIdAndAgencyIsNull(jobDemandId, pageable);
-        } else if (status != null) {
-            ApplicationStatus appStatus = ApplicationStatus.valueOf(status.toUpperCase());
-            applications = jobApplicationRepository.findByStatusAndAgencyIsNull(appStatus, pageable);
-        } else {
-            applications = jobApplicationRepository.findByAgencyIsNull(pageable);
-        }
-        return applications.map(this::mapToJobApplicationResponse);
+        return new PageImpl<>(content, pageable, total);
     }
+
     @Override
     public AdminSelfApplicationResponse getSelfApplicationDetails(Long applicationId) {
         JobApplication application = jobApplicationRepository.findById(applicationId)

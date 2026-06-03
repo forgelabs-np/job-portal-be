@@ -37,13 +37,7 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
 
     Optional<JobApplication> findByIdAndCandidateId(Long id, Long candidateId);
 
-    Page<JobApplication> findByJobDemandId(Long jobDemandId, Pageable pageable);
-
-    Page<JobApplication> findByStatus(ApplicationStatus status, Pageable pageable);
-
     Page<JobApplication> findByCandidateIdAndStatus(Long candidateId, ApplicationStatus status, Pageable pageable);
-
-    Page<JobApplication> findByJobDemandIdAndStatus(Long jobDemandId, ApplicationStatus status, Pageable pageable);
 
     Page<JobApplication> findByJobDemandIdAndAgencyId(Long jobDemandId, Long agencyId, Pageable pageable);
 
@@ -54,9 +48,6 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     @Query("UPDATE JobApplication ja SET ja.status = :status, ja.reviewedBy = :reviewedBy, ja.reviewedAt = CURRENT_TIMESTAMP, ja.rejectionReason = :rejectionReason WHERE ja.id = :id")
     void updateStatus(@Param("id") Long id, @Param("status") ApplicationStatus status,
                       @Param("reviewedBy") Long reviewedBy, @Param("rejectionReason") String rejectionReason);
-
-    @Query("SELECT COUNT(ja) FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.status = 'PENDING'")
-    Long countPendingByJobDemand(@Param("jobDemandId") Long jobDemandId);
 
     @Query("SELECT ja FROM JobApplication ja WHERE ja.agency IS NULL")
     Page<JobApplication> findByAgencyIsNull(Pageable pageable);
@@ -73,4 +64,19 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
                                                                    Pageable pageable);
 
     boolean existsByCandidateIdAndStatusIn(Long candidateId, List<ApplicationStatus> statuses);
+
+    // Agency applications only (exclude self-candidates where agency IS NULL)
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.agency IS NOT NULL")
+    Page<JobApplication> findByAgencyIsNotNull(Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.agency IS NOT NULL")
+    Page<JobApplication> findByJobDemandIdAndAgencyIsNotNull(@Param("jobDemandId") Long jobDemandId, Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.status = :status AND ja.agency IS NOT NULL")
+    Page<JobApplication> findByStatusAndAgencyIsNotNull(@Param("status") ApplicationStatus status, Pageable pageable);
+
+    @Query("SELECT ja FROM JobApplication ja WHERE ja.jobDemand.id = :jobDemandId AND ja.status = :status AND ja.agency IS NOT NULL")
+    Page<JobApplication> findByJobDemandIdAndStatusAndAgencyIsNotNull(@Param("jobDemandId") Long jobDemandId,
+                                                                      @Param("status") ApplicationStatus status,
+                                                                      Pageable pageable);
 }

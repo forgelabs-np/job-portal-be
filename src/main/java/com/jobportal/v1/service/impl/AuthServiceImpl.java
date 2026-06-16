@@ -177,6 +177,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public LoginResponse authenticateStaff(LoginRequest request) {
+        return authenticate(request, RoleEnum.STAFF);
+    }
+
+    @Override
     @Transactional
     public User verifyAndCompleteSignup(VerifySignupRequest verifyRequest) {
         EmailVerificationToken token = emailVerificationTokenRepository

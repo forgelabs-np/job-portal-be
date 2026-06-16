@@ -2,6 +2,7 @@ package com.jobportal.v1.enums;
 
 public enum RoleEnum {
     ADMIN("ADMIN"),
+    STAFF("STAFF"),
     AGENCY("AGENCY"),
     CANDIDATE("CANDIDATE");
 

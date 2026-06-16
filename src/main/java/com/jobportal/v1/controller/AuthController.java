@@ -79,6 +79,15 @@ public class AuthController {
         return ResponseUtil.created("Registration initiated", response);
     }
 
+    @Operation(summary = "Staff Login", description = "Authenticate staff user")
+    @PostMapping("/staff/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> staffLogin(
+            @Valid @RequestBody ApiRequest<LoginRequest> request) {
+
+        LoginResponse response = authService.authenticateStaff(request.getData());
+        return ResponseUtil.ok("Staff login successful", response);
+    }
+
     @Operation(summary = "Verify Signup", description = "Verify email OTP to complete registration")
     @PostMapping("/verify-signup")
     public ResponseEntity<ApiResponse<String>> verifySignup(

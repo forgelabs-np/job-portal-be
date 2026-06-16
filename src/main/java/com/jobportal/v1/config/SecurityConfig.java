@@ -90,7 +90,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/auth/**","/api/public/**").permitAll()
 
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN","STAFF")
                         .requestMatchers("/api/agency/**").hasRole("AGENCY")
                         .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")
 

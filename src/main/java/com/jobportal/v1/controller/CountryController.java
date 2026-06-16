@@ -23,6 +23,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/countries")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Country Management", description = "Country Management APIs")
 public class CountryController {
 
@@ -30,7 +31,6 @@ public class CountryController {
 
     @Operation(summary = "Sync Countries", description = "Fetch all countries from REST API and save/update to database")
     @PostMapping("/sync")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<CountrySyncResponse>> syncCountries() {
         CountrySyncResponse response = countrySyncService.syncCountriesFromApi();
         return ResponseUtil.ok(response.getMessage(), response);
@@ -38,7 +38,6 @@ public class CountryController {
 
     @Operation(summary = "Search Countries", description = "Search countries by name or code (Admin only)")
     @GetMapping("/search")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PageRes<CountryResponse>>> searchCountries(
             @RequestParam(required = false) String keyword,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -49,7 +48,6 @@ public class CountryController {
 
     @Operation(summary = "Toggle Country Status", description = "Enable or disable a country (Admin only)")
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<CountryResponse>> toggleCountryStatus(@PathVariable Long id) {
         CountryResponse response = countrySyncService.toggleCountryStatus(id);
         String message = response.getIsEnabled() ? "Country enabled successfully" : "Country disabled successfully";

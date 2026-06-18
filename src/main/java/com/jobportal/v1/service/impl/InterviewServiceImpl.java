@@ -164,23 +164,33 @@ public class InterviewServiceImpl implements InterviewService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));
 
-        if (interview.getStatus() != InterviewStatus.COMPLETED && interview.getStatus() != InterviewStatus.NO_SHOW) {
-            throw new BadRequestException("Interview result can only be set after interview is COMPLETED or marked as NO_SHOW");
+        if (interview.getStatus() != InterviewStatus.SCHEDULED &&
+                interview.getStatus() != InterviewStatus.RESCHEDULED) {
+            throw new BadRequestException("Interview must be SCHEDULED or RESCHEDULED to set result");
         }
 
-        interview.setResult(request.getResult());
+        InterviewResult selectedResult = request.getResult();
+
+        if (selectedResult == InterviewResult.PASS || selectedResult == InterviewResult.FAIL) {
+            interview.setStatus(InterviewStatus.COMPLETED);
+            log.info("Interview marked as COMPLETED with result: {}", selectedResult);
+        }
+
+        // If result is RE_INTERVIEW → reset to SCHEDULED
+        if (selectedResult == InterviewResult.RE_INTERVIEW) {
+            interview.setStatus(InterviewStatus.SCHEDULED);
+            interview.setReminderSent(false);
+            log.info("RE_INTERVIEW selected. Interview reset to SCHEDULED for next round.");
+        }
+
+        // Set the result
+        interview.setResult(selectedResult);
         interview.setResultNotes(request.getResultNotes());
         interview.setResultUpdatedBy(adminId);
         interview.setResultUpdatedAt(LocalDateTime.now());
 
-        if (request.getResult() == InterviewResult.RE_INTERVIEW) {
-            interview.setStatus(InterviewStatus.SCHEDULED);
-            interview.setReminderSent(false);
-            log.info("RE_INTERVIEW selected. Interview status reset to SCHEDULED for next round. Interview: {}", interviewId);
-        }
-
         Interview saved = interviewRepository.save(interview);
-        log.info("Interview result set: {} for interview: {} by admin: {}", request.getResult(), interviewId, adminId);
+        log.info("Interview result set: {} for interview: {} by admin: {}", selectedResult, interviewId, adminId);
 
         return mapToResponse(saved);
     }

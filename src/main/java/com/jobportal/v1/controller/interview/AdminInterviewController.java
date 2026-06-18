@@ -73,7 +73,8 @@ public class AdminInterviewController {
         return ResponseEntity.ok(ApiResponse.success("Interview retrieved", response));
     }
 
-    @Operation(summary = "Set Interview Result", description = "Set result for completed interview (PASS/FAIL/RE_INTERVIEW)")
+    @Operation(summary = "Set Interview Result",
+            description = "Set result for interview (PASS/FAIL/RE_INTERVIEW). PASS/FAIL auto-completes the interview. RE_INTERVIEW resets to SCHEDULED.")
     @PatchMapping("/{interviewId}/result")
     public ResponseEntity<ApiResponse<InterviewResponse>> setInterviewResult(
             @PathVariable Long interviewId,
@@ -81,6 +82,7 @@ public class AdminInterviewController {
             @CurrentUser UserPrincipal admin) {
 
         InterviewResponse response = interviewService.setInterviewResult(interviewId, request.getData(), admin.getId());
+
         String message = "Interview result set to " + request.getData().getResult();
         return ResponseEntity.ok(ApiResponse.success(message, response));
     }

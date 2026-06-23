@@ -3,12 +3,15 @@ package com.jobportal.v1.service.impl;
 import com.jobportal.v1.dto.admin.request.DocumentApprovalRequest;
 import com.jobportal.v1.dto.candidate.response.CandidateDocumentResponse;
 import com.jobportal.v1.dto.candidate.response.DocumentVerificationStats;
+import com.jobportal.v1.entity.Candidate;
 import com.jobportal.v1.entity.CandidateDocument;
 import com.jobportal.v1.enums.ApprovalStatus;
+import com.jobportal.v1.enums.NotificationType;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.CandidateDocumentRepository;
 import com.jobportal.v1.service.AdminCandidateDocumentService;
+import com.jobportal.v1.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,7 @@ import java.util.stream.Collectors;
 public class AdminCandidateDocumentServiceImpl implements AdminCandidateDocumentService {
 
     private final CandidateDocumentRepository documentRepository;
+    private final NotificationService notificationService;
 
     @Override
     public Page<CandidateDocumentResponse> getPendingDocuments(Pageable pageable) {
@@ -50,15 +54,24 @@ public class AdminCandidateDocumentServiceImpl implements AdminCandidateDocument
                         "Document not found with id: " + request.getDocumentId() +
                                 " for candidate: " + request.getCandidateId()));
 
-//        CandidateDocument document = documentRepository.findById(request.getDocumentId())
-//                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + request.getDocumentId()));
-
         if (request.getStatus() == ApprovalStatus.APPROVED) {
             document.setStatus(ApprovalStatus.APPROVED);
             document.setRejectionReason(null);
             document.setVerifiedBy(adminId);
             document.setVerifiedAt(java.time.LocalDateTime.now());
             log.info("Document approved: {} by admin: {}", document.getId(), adminId);
+
+            // ✅ Send notification ONLY if candidate has a user (self-registered)
+            Candidate candidate = document.getCandidate();
+            if (candidate.getUser() != null) {
+                notificationService.sendNotification(
+                        candidate.getUser().getId(),
+                        NotificationType.DOCUMENT_APPROVED,
+                        "Document Approved",
+                        "Your " + document.getDocumentType() + " has been approved.",
+                        "/candidate/documents"
+                );
+            }
 
         } else if (request.getStatus() == ApprovalStatus.REJECTED) {
             if (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty()) {
@@ -69,6 +82,18 @@ public class AdminCandidateDocumentServiceImpl implements AdminCandidateDocument
             document.setVerifiedBy(adminId);
             document.setVerifiedAt(java.time.LocalDateTime.now());
             log.info("Document rejected: {} by admin: {}", document.getId(), adminId);
+
+            // ✅ Send notification ONLY if candidate has a user (self-registered)
+            Candidate candidate = document.getCandidate();
+            if (candidate.getUser() != null) {
+                notificationService.sendNotification(
+                        candidate.getUser().getId(),
+                        NotificationType.DOCUMENT_REJECTED,
+                        "Document Rejected",
+                        "Your " + document.getDocumentType() + " was rejected: " + request.getRejectionReason(),
+                        "/candidate/documents"
+                );
+            }
 
         } else {
             throw new BadRequestException("Invalid status. Only APPROVED or REJECTED are allowed.");

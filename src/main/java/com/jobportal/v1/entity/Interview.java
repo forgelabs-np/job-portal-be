@@ -52,7 +52,7 @@ public class Interview {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "result", nullable = false)
-    private InterviewResult result = InterviewResult.PENDING;
+    private InterviewResult result = InterviewResult.SCHEDULED;
 
     @Column(name = "result_notes", columnDefinition = "TEXT")
     private String resultNotes;

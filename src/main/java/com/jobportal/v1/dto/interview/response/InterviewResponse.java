@@ -2,7 +2,6 @@ package com.jobportal.v1.dto.interview.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.jobportal.v1.enums.InterviewResult;
-import com.jobportal.v1.enums.InterviewStatus;
 import com.jobportal.v1.enums.InterviewType;
 import lombok.Builder;
 import lombok.Data;
@@ -28,8 +27,9 @@ public class InterviewResponse {
     private InterviewType interviewType;
     private String venue;
     private String adminNotes;
-    private InterviewStatus status;
+
     private InterviewResult result;
+
     private String resultNotes;
     private Long resultUpdatedBy;
 

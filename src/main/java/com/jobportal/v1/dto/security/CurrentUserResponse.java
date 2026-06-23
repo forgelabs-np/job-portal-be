@@ -43,6 +43,8 @@ public class CurrentUserResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime lastLoginTime;
 
+    private Long unreadNotificationCount;
+
     // Inner classes
     @Data
     @Builder

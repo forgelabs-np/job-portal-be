@@ -7,6 +7,7 @@ import com.jobportal.v1.entity.*;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.CurrentUserService;
+import com.jobportal.v1.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,11 +28,15 @@ public class CurrentUserServiceImpl implements CurrentUserService {
     private final AgencyDocumentRepository agencyDocumentRepository;
     private final CandidateRepository candidateRepository;
     private final CandidateStatusRepository candidateStatusRepository;
+    private final NotificationService notificationService;
 
     @Override
     public CurrentUserResponse getCurrentUserProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+
+        long unreadCount = notificationService.getUnreadCount(userId);
 
         CurrentUserResponse.CurrentUserResponseBuilder responseBuilder = CurrentUserResponse.builder()
                 .id(user.getId())
@@ -42,7 +47,8 @@ public class CurrentUserServiceImpl implements CurrentUserService {
                 .emailVerified(user.isEmailVerified())
                 .isActive(user.isActive())
                 .createdAt(user.getCreatedAt())
-                .lastLoginTime(user.getLastLoginTime());
+                .lastLoginTime(user.getLastLoginTime())
+                .unreadNotificationCount(unreadCount);
 
         // Handle based on user role
         if (user.isAdmin()) {

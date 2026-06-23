@@ -12,6 +12,7 @@ import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.CandidateSelfService;
+import com.jobportal.v1.service.NotificationService;
 import com.jobportal.v1.util.DocumentValidationUtil;
 import com.jobportal.v1.util.FileUploadUtil;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
     private final JobDemandRepository jobDemandRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final FileUploadUtil fileUploadUtil;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -323,6 +325,12 @@ public class CandidateSelfServiceImpl implements CandidateSelfService {
         application.setStatus(ApplicationStatus.PENDING);
 
         JobApplication saved = jobApplicationRepository.save(application);
+        notificationService.sendNotificationToAdmins(
+                NotificationType.NEW_APPLICATION,
+                "New Job Application",
+                candidate.getFullName() + " applied for " + job.getTitle(),
+                "/admin/applications/" + saved.getId());
+
         log.info("Self-registered candidate applied for job: {} by user: {}", jobDemandId, userId);
 
         return mapToApplicationResponse(saved);

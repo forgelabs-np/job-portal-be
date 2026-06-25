@@ -32,7 +32,6 @@ public class InterviewReminderScheduler {
         LocalDateTime from = now.plusHours(20);
         LocalDateTime to = now.plusHours(28);
 
-        // ✅ Only SCHEDULED or RE_INTERVIEW interviews need reminders
         List<Interview> upcoming = interviewRepository.findByScheduledAtBetweenAndResultInAndReminderSentFalse(
                 from, to,
                 List.of(InterviewResult.SCHEDULED, InterviewResult.RE_INTERVIEW)

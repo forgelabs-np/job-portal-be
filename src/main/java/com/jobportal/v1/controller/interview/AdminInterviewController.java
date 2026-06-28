@@ -6,7 +6,6 @@ import com.jobportal.v1.dto.PageRes;
 import com.jobportal.v1.dto.interview.request.InterviewRequest;
 import com.jobportal.v1.dto.interview.request.InterviewResultRequest;
 import com.jobportal.v1.dto.interview.response.InterviewResponse;
-import com.jobportal.v1.enums.InterviewStatus;
 import com.jobportal.v1.security.CurrentUser;
 import com.jobportal.v1.security.UserPrincipal;
 import com.jobportal.v1.service.InterviewService;
@@ -27,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/interviews")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Admin - Interviews", description = "Admin Interview Management APIs")
 public class AdminInterviewController {
 
@@ -48,12 +47,11 @@ public class AdminInterviewController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageRes<InterviewResponse>>> getAllInterviews(
             @RequestParam(required = false) Long jobDemandId,
-            @RequestParam(required = false) String status,
             @RequestParam(required = false) String result,
             @RequestParam(required = false) Long agencyId,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<InterviewResponse> interviews = interviewService.getAllInterviews(jobDemandId, status, result, agencyId, pageable);
+        Page<InterviewResponse> interviews = interviewService.getAllInterviews(jobDemandId, result, agencyId, pageable);
         PageRes<InterviewResponse> response = Pages.of(interviews);
 
         return ResponseEntity.ok(ApiResponse.success("Interviews retrieved", response));
@@ -73,28 +71,16 @@ public class AdminInterviewController {
         return ResponseEntity.ok(ApiResponse.success("Interview retrieved", response));
     }
 
-    @Operation(summary = "Set Interview Result", description = "Set result for completed interview (PASS/FAIL/RE_INTERVIEW)")
+    @Operation(summary = "Set Interview Result",
+            description = "Set result. Options: PENDING (awaiting result), PASS, FAIL, RE_INTERVIEW")
     @PatchMapping("/{interviewId}/result")
-    public ResponseEntity<ApiResponse<InterviewResponse>> setInterviewResult(
+    public ResponseEntity<ApiResponse<InterviewResponse>> updateInterviewResult(
             @PathVariable Long interviewId,
             @Valid @RequestBody ApiRequest<InterviewResultRequest> request,
             @CurrentUser UserPrincipal admin) {
 
-        InterviewResponse response = interviewService.setInterviewResult(interviewId, request.getData(), admin.getId());
+        InterviewResponse response = interviewService.updateInterviewResult(interviewId, request.getData(), admin.getId());
         String message = "Interview result set to " + request.getData().getResult();
-        return ResponseEntity.ok(ApiResponse.success(message, response));
-    }
-
-    @Operation(summary = "Update Interview Status",
-            description = "Update interview status (SCHEDULED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW)")
-    @PatchMapping("/{interviewId}/status")
-    public ResponseEntity<ApiResponse<InterviewResponse>> updateInterviewStatus(
-            @PathVariable Long interviewId,
-            @RequestParam InterviewStatus status,
-            @CurrentUser UserPrincipal admin) {
-
-        InterviewResponse response = interviewService.updateInterviewStatus(interviewId, status, admin.getId());
-        String message = "Interview status updated to " + status;
         return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 

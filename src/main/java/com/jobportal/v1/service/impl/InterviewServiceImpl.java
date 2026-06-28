@@ -2,7 +2,6 @@ package com.jobportal.v1.service.impl;
 
 import com.jobportal.v1.dto.interview.request.InterviewRequest;
 import com.jobportal.v1.dto.interview.request.InterviewResultRequest;
-import com.jobportal.v1.dto.interview.request.InterviewUpdateRequest;
 import com.jobportal.v1.dto.interview.response.InterviewResponse;
 import com.jobportal.v1.entity.*;
 import com.jobportal.v1.enums.*;
@@ -11,6 +10,7 @@ import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.EmailService;
 import com.jobportal.v1.service.InterviewService;
+import com.jobportal.v1.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,6 +29,7 @@ public class InterviewServiceImpl implements InterviewService {
     private final JobApplicationRepository jobApplicationRepository;
     private final CandidateRepository candidateRepository;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -59,8 +60,8 @@ public class InterviewServiceImpl implements InterviewService {
             interview.setJobApplication(application);
             interview.setCandidate(application.getCandidate());
             interview.setScheduledBy(adminId);
-            interview.setStatus(InterviewStatus.SCHEDULED);
-            interview.setResult(InterviewResult.PENDING);
+            // ✅ Combined: Set result to SCHEDULED initially (status is removed)
+            interview.setResult(InterviewResult.SCHEDULED);
             interview.setReminderSent(false);
 
             log.info("Creating new interview for application: {}", request.getJobApplicationId());
@@ -96,6 +97,7 @@ public class InterviewServiceImpl implements InterviewService {
             emailService.sendInterviewRescheduledEmail(saved);
         } else {
             emailService.sendInterviewScheduledEmail(saved);
+            sendInterviewScheduledNotification(saved);
         }
 
         log.info("Interview {}: {} for candidate: {} by admin: {}",
@@ -103,7 +105,6 @@ public class InterviewServiceImpl implements InterviewService {
 
         return mapToResponse(saved);
     }
-
 
     @Override
     public InterviewResponse getInterviewById(Long interviewId) {
@@ -121,68 +122,62 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     @Transactional
-    public InterviewResponse updateInterviewStatus(Long interviewId, InterviewStatus status, Long adminId) {
+    public InterviewResponse updateInterviewResult(Long interviewId, InterviewResultRequest request, Long adminId) {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found with id: " + interviewId));
 
-        // Validate status transition
-        InterviewStatus currentStatus = interview.getStatus();
+        InterviewResult currentResult = interview.getResult();
+        InterviewResult selectedResult = request.getResult();
 
-        if (currentStatus == InterviewStatus.CANCELLED) {
-            throw new BadRequestException("Cannot update status of a cancelled interview");
+        // ✅ Validate current state
+        if (currentResult == InterviewResult.PASS ||
+                currentResult == InterviewResult.FAIL) {
+            throw new BadRequestException("Interview already has a final result: " + currentResult + ". Cannot change.");
         }
 
-        if (currentStatus == InterviewStatus.COMPLETED) {
-            throw new BadRequestException("Interview is already completed");
+        // ✅ Mark as PENDING (interview completed, awaiting result)
+        if (selectedResult == InterviewResult.PENDING) {
+            if (currentResult != InterviewResult.SCHEDULED) {
+                throw new BadRequestException("Interview must be SCHEDULED to mark as PENDING. Current: " + currentResult);
+            }
+            interview.setResult(InterviewResult.PENDING);
+            log.info("Interview marked as PENDING (completed, awaiting result) by admin: {}", adminId);
+
+            Interview saved = interviewRepository.save(interview);
+            return mapToResponse(saved);
         }
 
-        if (status == InterviewStatus.COMPLETED && interview.getResult() != InterviewResult.PENDING) {
-            // If marking as COMPLETED but result is already set, that's fine
-            log.info("Marking interview as COMPLETED with existing result: {}", interview.getResult());
-        }
+        // ✅ Set final result: PASS, FAIL, RE_INTERVIEW
+        if (selectedResult == InterviewResult.PASS ||
+                selectedResult == InterviewResult.FAIL ||
+                selectedResult == InterviewResult.RE_INTERVIEW) {
 
-        interview.setStatus(status);
+            // Only allow if currently PENDING or RE_INTERVIEW
+            if (currentResult != InterviewResult.PENDING && currentResult != InterviewResult.RE_INTERVIEW) {
+                throw new BadRequestException("Interview must be PENDING to set final result. Current: " + currentResult);
+            }
 
-        // If marking as NO_SHOW, automatically set result to FAIL
-        if (status == InterviewStatus.NO_SHOW) {
-            interview.setResult(InterviewResult.FAIL);
-            interview.setResultNotes("Candidate did not show up for interview");
+            interview.setResult(selectedResult);
+            interview.setResultNotes(request.getResultNotes());
             interview.setResultUpdatedBy(adminId);
             interview.setResultUpdatedAt(LocalDateTime.now());
-            log.info("Interview marked as NO_SHOW, result automatically set to FAIL for interview: {}", interviewId);
+
+            // ✅ If RE_INTERVIEW, reset to SCHEDULED for next round
+            if (selectedResult == InterviewResult.RE_INTERVIEW) {
+                interview.setScheduledAt(null);  // Admin must set new date
+                interview.setReminderSent(false);
+                log.info("RE_INTERVIEW selected. Interview reset to SCHEDULED for next round.");
+            }
+
+            Interview saved = interviewRepository.save(interview);
+
+            sendInterviewResultNotification(saved, selectedResult);
+
+            log.info("Interview result set: {} for interview: {} by admin: {}", selectedResult, interviewId, adminId);
+            return mapToResponse(saved);
         }
 
-        Interview saved = interviewRepository.save(interview);
-        log.info("Interview status updated from {} to {} by admin: {}", currentStatus, status, adminId);
-
-        return mapToResponse(saved);
-    }
-
-    @Override
-    @Transactional
-    public InterviewResponse setInterviewResult(Long interviewId, InterviewResultRequest request, Long adminId) {
-        Interview interview = interviewRepository.findById(interviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));
-
-        if (interview.getStatus() != InterviewStatus.COMPLETED && interview.getStatus() != InterviewStatus.NO_SHOW) {
-            throw new BadRequestException("Interview result can only be set after interview is COMPLETED or marked as NO_SHOW");
-        }
-
-        interview.setResult(request.getResult());
-        interview.setResultNotes(request.getResultNotes());
-        interview.setResultUpdatedBy(adminId);
-        interview.setResultUpdatedAt(LocalDateTime.now());
-
-        if (request.getResult() == InterviewResult.RE_INTERVIEW) {
-            interview.setStatus(InterviewStatus.SCHEDULED);
-            interview.setReminderSent(false);
-            log.info("RE_INTERVIEW selected. Interview status reset to SCHEDULED for next round. Interview: {}", interviewId);
-        }
-
-        Interview saved = interviewRepository.save(interview);
-        log.info("Interview result set: {} for interview: {} by admin: {}", request.getResult(), interviewId, adminId);
-
-        return mapToResponse(saved);
+        throw new BadRequestException("Invalid result. Allowed: PENDING, PASS, FAIL, RE_INTERVIEW");
     }
 
     @Override
@@ -191,14 +186,18 @@ public class InterviewServiceImpl implements InterviewService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));
 
-        if (interview.getStatus() == InterviewStatus.COMPLETED) {
-            throw new BadRequestException("Cannot cancel a completed interview");
+        if (interview.getResult() == InterviewResult.PASS ||
+                interview.getResult() == InterviewResult.FAIL) {
+            throw new BadRequestException("Cannot cancel a completed interview with final result");
         }
 
-        interview.setStatus(InterviewStatus.CANCELLED);
+        interview.setResult(InterviewResult.RE_INTERVIEW);
+        interview.setScheduledAt(null);
         Interview saved = interviewRepository.save(interview);
 
         emailService.sendInterviewCancelledEmail(saved);
+        sendInterviewCancelledNotification(saved);
+
         log.info("Interview cancelled: {} by admin: {}", interviewId, adminId);
 
         return mapToResponse(saved);
@@ -210,7 +209,8 @@ public class InterviewServiceImpl implements InterviewService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));
 
-        if (interview.getStatus() == InterviewStatus.SCHEDULED || interview.getStatus() == InterviewStatus.RESCHEDULED) {
+        if (interview.getResult() == InterviewResult.SCHEDULED ||
+                interview.getResult() == InterviewResult.RE_INTERVIEW) {
             emailService.sendInterviewCancelledEmail(interview);
         }
 
@@ -219,27 +219,18 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     @Override
-    public Page<InterviewResponse> getAllInterviews(Long jobDemandId, String status, String result, Long agencyId, Pageable pageable) {
-        InterviewStatus interviewStatus = null;
+    public Page<InterviewResponse> getAllInterviews(Long jobDemandId, String result, Long agencyId, Pageable pageable) {
         InterviewResult interviewResult = null;
-
-        if (status != null && !status.isEmpty()) {
-            try {
-                interviewStatus = InterviewStatus.valueOf(status.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid status. Allowed: SCHEDULED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW");
-            }
-        }
 
         if (result != null && !result.isEmpty()) {
             try {
                 interviewResult = InterviewResult.valueOf(result.toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid result. Allowed: PENDING, PASS, FAIL, RE_INTERVIEW");
+                throw new BadRequestException("Invalid result. Allowed: SCHEDULED, PENDING, PASS, FAIL, RE_INTERVIEW");
             }
         }
 
-        return interviewRepository.findAllWithFilters(jobDemandId, interviewStatus, interviewResult, agencyId, pageable)
+        return interviewRepository.findAllWithFilters(jobDemandId, interviewResult, agencyId, pageable)
                 .map(this::mapToResponse);
     }
 
@@ -254,7 +245,8 @@ public class InterviewServiceImpl implements InterviewService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview not found"));
 
-        if (interview.getCandidate().getAgency() == null || !interview.getCandidate().getAgency().getId().equals(agencyId)) {
+        if (interview.getCandidate().getAgency() == null ||
+                !interview.getCandidate().getAgency().getId().equals(agencyId)) {
             throw new BadRequestException("You are not authorized to view this interview");
         }
 
@@ -285,6 +277,65 @@ public class InterviewServiceImpl implements InterviewService {
         return mapToResponse(interview);
     }
 
+    // ✅ Notification helper methods
+    private void sendInterviewScheduledNotification(Interview interview) {
+        Candidate candidate = interview.getCandidate();
+        JobApplication application = interview.getJobApplication();
+        String jobTitle = application.getJobDemand().getTitle();
+
+        if (candidate.getUser() != null) {
+            notificationService.sendNotification(
+                    candidate.getUser().getId(),
+                    NotificationType.INTERVIEW_SCHEDULED,
+                    "Interview Scheduled",
+                    "Interview scheduled for " + jobTitle + " on " + interview.getScheduledAt(),
+                    "/candidate/interviews/" + interview.getId()
+            );
+        }
+
+        if (candidate.getAgency() != null) {
+            notificationService.sendNotification(
+                    candidate.getAgency().getId(),
+                    NotificationType.INTERVIEW_SCHEDULED,
+                    "Interview Scheduled for Candidate",
+                    "Interview scheduled for " + candidate.getFullName() + " for " + jobTitle,
+                    "/agency/interviews/" + interview.getId()
+            );
+        }
+    }
+
+    private void sendInterviewResultNotification(Interview interview, InterviewResult result) {
+        Candidate candidate = interview.getCandidate();
+        JobApplication application = interview.getJobApplication();
+        String jobTitle = application.getJobDemand().getTitle();
+
+        if (candidate.getUser() != null) {
+            notificationService.sendNotification(
+                    candidate.getUser().getId(),
+                    NotificationType.INTERVIEW_RESULT,
+                    "Interview Result Published",
+                    "Your interview result for " + jobTitle + ": " + result,
+                    "/candidate/interviews/" + interview.getId()
+            );
+        }
+    }
+
+    private void sendInterviewCancelledNotification(Interview interview) {
+        Candidate candidate = interview.getCandidate();
+        JobApplication application = interview.getJobApplication();
+        String jobTitle = application.getJobDemand().getTitle();
+
+        if (candidate.getUser() != null) {
+            notificationService.sendNotification(
+                    candidate.getUser().getId(),
+                    NotificationType.INTERVIEW_CANCELLED,
+                    "Interview Cancelled",
+                    "Your interview for " + jobTitle + " has been cancelled.",
+                    "/candidate/applications"
+            );
+        }
+    }
+
     private InterviewResponse mapToResponse(Interview entity) {
         Candidate candidate = entity.getCandidate();
         JobApplication application = entity.getJobApplication();
@@ -305,7 +356,6 @@ public class InterviewServiceImpl implements InterviewService {
                 .interviewType(entity.getInterviewType())
                 .venue(entity.getVenue())
                 .adminNotes(entity.getAdminNotes())
-                .status(entity.getStatus())
                 .result(entity.getResult())
                 .resultNotes(entity.getResultNotes())
                 .resultUpdatedBy(entity.getResultUpdatedBy())

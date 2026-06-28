@@ -30,8 +30,8 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/agency")
-@PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin - Agency Management", description = "Admin approving / rejecting documents and profile APIs")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+@Tag(name = "Admin - Agency Manageme nt", description = "Admin approving / rejecting documents and profile APIs")
 public class AdminAgencyController {
 
     private final AdminAgencyService adminAgencyService;

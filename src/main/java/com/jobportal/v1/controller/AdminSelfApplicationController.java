@@ -32,7 +32,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/self-applications")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Admin - Self Applications", description = "Admin Self-Candidate Application Management APIs")
 public class AdminSelfApplicationController {
 

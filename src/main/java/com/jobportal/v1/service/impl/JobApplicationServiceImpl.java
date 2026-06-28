@@ -9,11 +9,13 @@ import com.jobportal.v1.dto.jobApplicationReport.response.JobApplicationResponse
 import com.jobportal.v1.entity.*;
 import com.jobportal.v1.enums.ApplicationStatus;
 import com.jobportal.v1.enums.ApprovalStatus;
+import com.jobportal.v1.enums.NotificationType;
 import com.jobportal.v1.exception.BadRequestException;
 import com.jobportal.v1.exception.ResourceNotFoundException;
 import com.jobportal.v1.mapper.ApplicationMapper;
 import com.jobportal.v1.repository.*;
 import com.jobportal.v1.service.JobApplicationService;
+import com.jobportal.v1.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,7 @@ public class JobApplicationServiceImpl implements JobApplicationService {
     private final JobAgencyAssignmentRepository assignmentRepository;
     private final CandidateDocumentRepository documentRepository;
     private final ApplicationMapper applicationMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -168,6 +171,14 @@ public class JobApplicationServiceImpl implements JobApplicationService {
         job.incrementAppliedCount();
         jobDemandRepository.save(job);
 
+        // ✅ Send notification to admins/staff
+        notificationService.sendNotificationToAdmins(
+                NotificationType.NEW_APPLICATION,
+                "New Job Application",
+                candidate.getFullName() + " applied for " + job.getTitle() + " (via " + candidate.getAgency().getFullName() + ")",
+                "/admin/applications/" + saved.getId()
+        );
+
         log.info("Application submitted: Job {} by Candidate {} from Agency {}",
                 job.getTitle(), candidate.getFirstName() + candidate.getLastName(), agencyId);
 
@@ -274,6 +285,9 @@ public class JobApplicationServiceImpl implements JobApplicationService {
 
         JobApplication saved = jobApplicationRepository.save(application);
 
+        // ✅ Send notification based on status change
+        sendApplicationStatusNotification(application, request.getStatus());
+
         log.info("Application {} status updated to {} by admin {}",
                 applicationId, request.getStatus(), adminId);
 
@@ -360,10 +374,70 @@ public class JobApplicationServiceImpl implements JobApplicationService {
 
         JobApplication saved = jobApplicationRepository.save(application);
 
+        // ✅ Send notification for self-application status change
+        sendSelfApplicationStatusNotification(application, request.getStatus());
+
         log.info("Self-application {} status updated to {} by admin {}",
                 applicationId, request.getStatus(), adminId);
 
         return mapToAdminSelfApplicationResponse(saved);
+    }
+
+    // ✅ Notification helper methods
+    private void sendApplicationStatusNotification(JobApplication application, ApplicationStatus newStatus) {
+        Candidate candidate = application.getCandidate();
+        String jobTitle = application.getJobDemand().getTitle();
+
+        if (newStatus == ApplicationStatus.SHORTLISTED) {
+            // ✅ Only send to candidate if they have a user (self-registered)
+            if (candidate.getUser() != null) {
+                notificationService.sendNotification(
+                        candidate.getUser().getId(),
+                        NotificationType.APPLICATION_STATUS_CHANGE,
+                        "Application Shortlisted",
+                        "Your application for " + jobTitle + " has been shortlisted!",
+                        "/candidate/applications/" + application.getId()
+                );
+            }
+            // Send to agency if exists (agency-managed candidates)
+            if (candidate.getAgency() != null) {
+                notificationService.sendNotification(
+                        candidate.getAgency().getId(),
+                        NotificationType.APPLICATION_STATUS_CHANGE,
+                        "Candidate Shortlisted",
+                        candidate.getFullName() + " has been shortlisted for " + jobTitle,
+                        "/agency/applications/" + application.getId()
+                );
+            }
+        } else if (newStatus == ApplicationStatus.REJECTED) {
+            if (candidate.getUser() != null) {
+                notificationService.sendNotification(
+                        candidate.getUser().getId(),
+                        NotificationType.APPLICATION_STATUS_CHANGE,
+                        "Application Update",
+                        "Your application for " + jobTitle + " has been reviewed.",
+                        "/candidate/applications/" + application.getId()
+                );
+            }
+        }
+    }
+    private void sendSelfApplicationStatusNotification(JobApplication application, ApplicationStatus newStatus) {
+        Candidate candidate = application.getCandidate();
+        String jobTitle = application.getJobDemand().getTitle();
+
+        if (candidate.getUser().getId() != null) {
+            String message = newStatus == ApplicationStatus.SHORTLISTED
+                    ? "Your application for " + jobTitle + " has been shortlisted!"
+                    : "Your application for " + jobTitle + " has been reviewed.";
+
+            notificationService.sendNotification(
+                    candidate.getUser().getId(),
+                    NotificationType.APPLICATION_STATUS_CHANGE,
+                    newStatus == ApplicationStatus.SHORTLISTED ? "Application Shortlisted" : "Application Update",
+                    message,
+                    "/candidate/applications/" + application.getId()
+            );
+        }
     }
 
 
